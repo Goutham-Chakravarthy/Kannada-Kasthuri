@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #ff5e3a; /* Dynamic color accent */
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+}
+
+:root {
+  --font-kannada: ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-kannada);
+  background-color: #000;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+/* Background Scene configuration */
+.hero-bg {
+  background-image: url('/bg/scene-wide.png');
+}
+
+@media (orientation: portrait) {
+  .hero-bg {
+    background-image: url('/bg/scene-tall.png');
+  }
+}
+
+/* Glassmorphism recipe classes */
+.glass-panel {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.055) 100%);
+  backdrop-filter: blur(40px) saturate(1.7);
+  -webkit-backdrop-filter: blur(40px) saturate(1.7);
+  box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Clock colon blink */
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-blink {
+  animation: blink 1s step-start infinite;
+}
+
+/* Spinning vinyl */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-vinyl {
+  animation: spin 8s linear infinite;
+}
+
+/* Interactive elements */
+.slider-rail {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.slider-track {
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent);
+}
