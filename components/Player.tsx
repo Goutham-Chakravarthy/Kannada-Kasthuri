@@ -15,17 +15,29 @@ declare global {
 // Module-level Sub-components
 const Clock: React.FC = () => {
   const [timeStr, setTimeStr] = useState<string>("");
+  const [dateStr, setDateStr] = useState<string>("");
 
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
-      const formatted = new Intl.DateTimeFormat("en-IN", {
+      // Format time: e.g., "6:34 pm"
+      const formattedTime = new Intl.DateTimeFormat("en-IN", {
         timeZone: "Asia/Kolkata",
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
-      }).format(now);
-      setTimeStr(formatted);
+      }).format(now).toLowerCase();
+
+      // Format date: e.g., "WEDNESDAY, 12 AUGUST"
+      const formattedDate = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }).format(now).toUpperCase();
+
+      setTimeStr(formattedTime);
+      setDateStr(`${formattedDate} · IST`);
     };
 
     updateClock();
@@ -35,20 +47,16 @@ const Clock: React.FC = () => {
 
   if (!timeStr) return null;
 
-  const parts = timeStr.split(":");
-  if (parts.length === 2) {
-    const hour = parts[0];
-    const minuteAndAmPm = parts[1]; // e.g. "05 pm"
-    return (
-      <span className="tabular-nums font-medium tracking-wide">
-        {hour}
-        <span className="animate-blink inline-block mx-[1px]">:</span>
-        {minuteAndAmPm}
-      </span>
-    );
-  }
-
-  return <span className="tabular-nums">{timeStr}</span>;
+  return (
+    <div className="flex flex-col text-left drop-shadow-md select-none">
+      <div className="text-xl sm:text-2xl font-light tracking-wide text-white leading-none">
+        {timeStr}
+      </div>
+      <div className="text-[9px] sm:text-[10px] font-semibold text-white/50 tracking-widest uppercase mt-1">
+        {dateStr}
+      </div>
+    </div>
+  );
 };
 
 interface SeekProps {
@@ -304,12 +312,9 @@ export const Player: React.FC = () => {
   return (
     <>
       {/* Top row - fixed corners */}
-      <header className="fixed top-0 inset-x-0 flex items-center justify-between select-none z-30 px-[max(1rem,env(safe-area-inset-left))] py-[max(1rem,env(safe-area-inset-top))]">
+      <header className="fixed top-0 inset-x-0 flex items-center justify-between select-none z-30 px-[max(1rem,env(safe-area-inset-left))] py-[max(1.2rem,env(safe-area-inset-top))]">
         {/* Clock top-left */}
-        <div className="flex flex-col text-white/90 text-sm font-semibold drop-shadow-md">
-          <Clock />
-          <span className="text-[10px] text-white/60 tracking-widest uppercase mt-0.5">IST</span>
-        </div>
+        <Clock />
 
         {/* Listener count top-center */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/45 border border-white/10 backdrop-blur-md">
@@ -323,32 +328,32 @@ export const Player: React.FC = () => {
         </div>
 
         {/* Top-right corner label */}
-        <div className="flex items-center gap-4 text-xs font-semibold drop-shadow-md text-white/70">
-          ದರ್ಶಿನಿ ರೇಡಿಯೋ
+        <div className="flex items-center gap-4 text-sm font-bold drop-shadow-md text-amber-200/90 font-serif">
+          ಕನ್ನಡ ಕಸ್ತೂರಿ
         </div>
       </header>
 
       {/* Kannada Landing Page Overlay */}
       {!hasInteracted && (
-        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center p-6 text-center bg-black/55 backdrop-blur-sm transition-all duration-500">
+        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center p-6 text-center bg-black/75 backdrop-blur-sm transition-all duration-500">
           {/* Logo Badge / Spinning Vinyl Style */}
           <div className="w-24 h-24 rounded-full bg-black/60 border border-white/10 flex items-center justify-center shadow-2xl mb-8 relative group cursor-pointer animate-spin-vinyl">
             <span className="text-4xl select-none">📻</span>
-            <div className="absolute inset-0 rounded-full border border-orange-500/30 animate-ping" style={{ animationDuration: '3s' }} />
+            <div className="absolute inset-0 rounded-full border border-amber-500/30 animate-ping" style={{ animationDuration: '3s' }} />
           </div>
 
           {/* Kannada Title */}
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-wide text-orange-50 font-serif mb-2 drop-shadow-lg">
-            ದರ್ಶಿನಿ ರೇಡಿಯೋ
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-wide text-amber-50 font-serif mb-2 drop-shadow-lg">
+            ಕನ್ನಡ ಕಸ್ತೂರಿ
           </h1>
-          <p className="text-xs font-semibold tracking-widest text-orange-300/80 font-mono uppercase mb-8 select-none">
-            Darshini Radio
+          <p className="text-xs font-semibold tracking-widest text-amber-400/80 font-mono uppercase mb-8 select-none">
+            Kannada Kasthuri
           </p>
 
           {/* Subtext / Description */}
           <p className="text-sm sm:text-base text-white/80 max-w-md leading-relaxed mb-10 px-4">
-            ನಮಸ್ಕಾರ — ದರ್ಶಿನಿ ರೇಡಿಯೋಗೆ ಸುಸ್ವಾಗತ. <br />
-            <span className="text-white/60 text-xs sm:text-sm mt-2 block">
+            ನಮಸ್ಕಾರ — ಕನ್ನಡ ಕಸ್ತೂರಿಗೆ ಸುಸ್ವಾಗತ. <br />
+            <span className="text-white/60 text-xs sm:text-sm mt-2 block font-serif">
               ಚಹಾದ ಸವಿಯೊಂದಿಗೆ ಹಳೆಯ ಮಧುರ ಕನ್ನಡ ಗೀತೆಗಳ ಸವಾರಿ.
             </span>
           </p>
@@ -359,9 +364,9 @@ export const Player: React.FC = () => {
               setHasInteracted(true);
               togglePlay();
             }}
-            className="flex items-center gap-4 bg-white/5 border border-white/10 hover:bg-white/10 rounded-full p-2 pr-6 cursor-pointer transform active:scale-95 transition-all shadow-xl hover:shadow-orange-500/10 group"
+            className="flex items-center gap-4 bg-white/5 border border-white/10 hover:bg-white/10 rounded-full p-2 pr-6 cursor-pointer transform active:scale-95 transition-all shadow-xl hover:shadow-amber-500/10 group"
           >
-            <div className="w-12 h-12 bg-gradient-to-b from-orange-500 to-orange-700 rounded-full flex items-center justify-center shadow-[0_4px_12px_rgba(255,94,58,0.4)] group-hover:from-orange-400 group-hover:to-orange-600 transition-colors">
+            <div className="w-12 h-12 bg-gradient-to-b from-amber-500 to-orange-700 rounded-full flex items-center justify-center shadow-[0_4px_12px_rgba(245,158,11,0.4)] group-hover:from-amber-400 group-hover:to-orange-600 transition-colors">
               <svg className="w-6 h-6 text-white translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
@@ -374,66 +379,155 @@ export const Player: React.FC = () => {
 
           {/* Footnote */}
           <p className="text-[10px] text-white/40 max-w-xs mt-8 leading-normal select-none">
-            ಪ್ಲೇ ಒತ್ತಿದ ನಂತರ ಆಡಿಯೋ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ. ಸ್ಪೇಸ್ ಬಾರ್ ಬಳಸಿ ಪ್ಲೇ/ಪಾಸ್ ಮಾಡಬಹುದು.
+            ಪ್ಲೇ ಒತ್ತಿದ ನಂತರ ಆಡಿಯೋ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ. ಸ್ಪೇಸ್ ಬಾರ್ ಅಥವಾ ಕ್ಲಿಕ್ ಬಳಸಿ ಪ್ಲೇ/ಪಾಸ್ ಮಾಡಬಹುದು.
           </p>
         </div>
       )}
 
-      {/* Main player box wrapper */}
-      <div className="relative w-full max-w-xl px-4 pb-[max(2rem,env(safe-area-inset-bottom))] z-20">
-        
-        {/* Dynamic Shared Absolute YouTube Player container that perfectly overlaps the vinyl slots */}
-        <div
-          className={`absolute rounded-full overflow-hidden border border-white/20 transition-all duration-300 animate-spin-vinyl z-10 ${
-            isPlaying ? "running" : "paused"
-          } left-[32px] top-[32px] w-[64px] h-[64px]`}
-          style={{ animationPlayState: isPlaying ? "running" : "paused" }}
+      {/* Central Retro Title Section */}
+      <div className="flex-1 flex flex-col items-center justify-center text-center select-none px-4 mt-20 sm:mt-24">
+        {/* Retro play badge above the title */}
+        <div 
+          onClick={togglePlay}
+          className="w-16 h-16 rounded-full bg-neutral-900/80 border border-white/15 flex items-center justify-center shadow-2xl mb-6 relative group cursor-pointer transition-transform duration-300 hover:scale-105"
         >
-          {/* Spindle hole */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-            <div className="w-3 h-3 bg-black/80 rounded-full ring-2 ring-white/40 shadow-sm" />
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-red-600 flex items-center justify-center shadow-md">
+            {isPlaying ? (
+              <span className="w-4 h-4 flex gap-1 justify-center items-center">
+                <span className="w-1 h-4 bg-white rounded-full animate-pulse" />
+                <span className="w-1 h-3 bg-white rounded-full animate-pulse [animation-delay:0.2s]" />
+                <span className="w-1 h-4 bg-white rounded-full animate-pulse [animation-delay:0.4s]" />
+              </span>
+            ) : (
+              <svg className="w-5 h-5 text-white translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            )}
           </div>
-          {/* YouTube Video Target */}
-          <div id={containerId} className="w-full h-full object-cover scale-150 pointer-events-none" />
+          <div className="absolute inset-0 rounded-full border border-amber-500/20 animate-ping pointer-events-none" style={{ animationDuration: '3s' }} />
         </div>
 
-        {/* DESKTOP UI: horizontal glass pill */}
-        <div className="hidden sm:flex flex-col gap-3 rounded-full p-4 pl-6 glass-panel relative w-full h-[128px] justify-center">
-          {/* Row 1: Vinyl + Info (Left) and Transport Controls (Right) */}
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-4 min-w-0 pl-16">
-              <div className="flex flex-col min-w-0">
-                <span className="text-[16px] font-bold truncate text-white leading-tight">
-                  {activeTrack.title}
-                </span>
-                <span className="text-[12.5px] text-white/60 truncate mt-0.5">
-                  {activeTrack.artist} • <span className="text-white/45 font-mono text-[11px]">{activeTrack.film}</span>
-                </span>
-              </div>
+        {/* Styled Kannada Retro Title */}
+        <h1 className="text-5xl sm:text-7xl font-extrabold tracking-wide text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] font-serif relative">
+          <span className="bg-gradient-to-b from-amber-100 via-amber-200 to-orange-100 bg-clip-text text-transparent filter drop-shadow-[0_2px_4px_rgba(251,191,36,0.4)]">
+            ಕನ್ನಡ ಕಸ್ತೂರಿ
+          </span>
+        </h1>
+
+        {/* English Subtitle */}
+        <p className="text-[10px] sm:text-xs font-bold tracking-[0.35em] text-amber-500/90 font-mono uppercase mt-3 drop-shadow-md">
+          KANNADA KASTHURI
+        </p>
+
+        {/* Now Playing Badge */}
+        <div className="mt-6 px-4 py-1.5 rounded-full bg-black/40 border border-white/5 backdrop-blur-md flex items-center gap-2">
+          <span className="text-[9px] sm:text-[10px] font-bold tracking-widest text-white/50 uppercase font-mono">
+            NOW PLAYING
+          </span>
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+          <span className="text-xs sm:text-sm font-medium text-amber-200 font-serif">
+            {activeTrack.film}
+          </span>
+        </div>
+      </div>
+
+      {/* Main player box wrapper */}
+      <div className="relative w-full max-w-2xl px-4 pb-[max(2rem,env(safe-area-inset-bottom))] z-20 mt-auto">
+        <div className="flex flex-col gap-4 rounded-[28px] p-5 glass-panel relative w-full">
+          {/* Main Info Row (Thumbnail + Details + Quick Links) */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full">
+            {/* Thumbnail Box */}
+            <div className="relative w-full sm:w-40 aspect-video rounded-2xl bg-neutral-950 border border-white/10 overflow-hidden shrink-0 shadow-inner group">
+              <img
+                src={`https://img.youtube.com/vi/${activeTrack.videoId}/mqdefault.jpg`}
+                alt={activeTrack.title}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              {/* Overlay shadow to look premium */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
             </div>
 
-            {/* Transport & Auxiliary Controls */}
-            <div className="flex items-center gap-3 select-none pr-2">
-              {/* Shuffle / Line toggle */}
+            {/* Song Info & External Links */}
+            <div className="flex-1 min-w-0 w-full text-center sm:text-left flex flex-col justify-between h-full py-1">
+              <div>
+                <h3 className="text-lg sm:text-xl font-bold text-white truncate tracking-wide leading-tight">
+                  {activeTrack.title}
+                </h3>
+                <p className="text-xs sm:text-sm text-amber-200/80 truncate mt-1">
+                  {activeTrack.artist}
+                </p>
+                <p className="text-[11px] text-white/40 truncate mt-0.5 font-mono">
+                  {activeTrack.film} ({activeTrack.year})
+                </p>
+              </div>
+
+              {/* Action Buttons (Spotify / YT Music / YouTube) */}
+              <div className="flex items-center justify-center sm:justify-start gap-2 mt-3.5">
+                <a
+                  href={`https://music.youtube.com/watch?v=${activeTrack.videoId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                >
+                  YT Music ↗
+                </a>
+                <a
+                  href={`https://youtu.be/${activeTrack.videoId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                >
+                  YouTube ↗
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Seekbar Section */}
+          <div className="flex items-center gap-3 w-full select-none mt-2">
+            <span className="text-[10px] text-white/40 font-mono w-8 text-right shrink-0">
+              {formatTime(currentTime)}
+            </span>
+            <div className="flex-1">
+              <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
+            </div>
+            <span className="text-[10px] text-white/40 font-mono w-8 text-left shrink-0">
+              {formatTime(duration)}
+            </span>
+          </div>
+
+          {/* Control Bar Section */}
+          <div className="flex items-center justify-between w-full mt-1 border-t border-white/5 pt-3">
+            {/* Left controls: Playlist toggle, Shuffle, Repeat */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsPlaylistOpen(true)}
+                className="p-2 text-white/50 hover:text-white rounded-full hover:bg-white/5 transition-colors cursor-pointer"
+                title="Playlist"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
+                </svg>
+              </button>
+
               <button
                 onClick={() => setIsShuffle(!isShuffle)}
-                className={`p-1.5 cursor-pointer transition-colors ${
-                  isShuffle ? "text-orange-400 hover:text-orange-300" : "text-white/45 hover:text-white"
+                className={`p-2 rounded-full hover:bg-white/5 transition-all cursor-pointer ${
+                  isShuffle ? "text-amber-400" : "text-white/45"
                 }`}
-                title={isShuffle ? "Shuffle Mode (Active)" : "Sequential / Line Mode"}
+                title="Shuffle"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.656 48.656 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3M4.5 12a48.563 48.563 0 00-.138 3.662 4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l-3 3m3-3l3-3" />
                 </svg>
               </button>
 
-              {/* Play Once toggle */}
               <button
                 onClick={() => setPlayOnce(!playOnce)}
-                className={`p-1.5 cursor-pointer transition-colors ${
-                  playOnce ? "text-orange-400 hover:text-orange-300" : "text-white/45 hover:text-white"
+                className={`p-2 rounded-full hover:bg-white/5 transition-all cursor-pointer ${
+                  playOnce ? "text-amber-400" : "text-white/45"
                 }`}
-                title={playOnce ? "Play Once Mode (Active)" : "Continuous Loop Mode"}
+                title="Play Once"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   {playOnce ? (
@@ -443,22 +537,23 @@ export const Player: React.FC = () => {
                   )}
                 </svg>
               </button>
+            </div>
 
-              {/* Prev Button */}
+            {/* Center controls: Prev, Play/Pause, Next */}
+            <div className="flex items-center gap-4">
               <button
                 onClick={handlePrev}
-                className="p-1.5 text-white/70 hover:text-white transition-colors cursor-pointer"
+                className="p-2 text-white/70 hover:text-white active:scale-90 transition-transform cursor-pointer"
                 title="Previous"
               >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
                 </svg>
               </button>
 
-              {/* Solid White Play/Pause Button */}
               <button
                 onClick={togglePlay}
-                className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black cursor-pointer shadow-lg active:scale-95 transition-transform"
+                className="w-12 h-12 bg-white hover:bg-amber-50 text-black rounded-full flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-all"
                 title={isPlaying ? "Pause" : "Play"}
               >
                 {isPlaying ? (
@@ -472,151 +567,21 @@ export const Player: React.FC = () => {
                 )}
               </button>
 
-              {/* Next Button */}
               <button
                 onClick={handleNext}
-                className="p-1.5 text-white/70 hover:text-white transition-colors cursor-pointer"
+                className="p-2 text-white/70 hover:text-white active:scale-90 transition-transform cursor-pointer"
                 title="Next"
               >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M16 18h2V6h-2zM6 18l8.5-6L6 6z"/>
                 </svg>
               </button>
-
-              {/* Playlist Button */}
-              <button
-                onClick={() => setIsPlaylistOpen(true)}
-                className="p-1.5 text-white/45 hover:text-white transition-colors cursor-pointer"
-                title="Playlist"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
-                </svg>
-              </button>
             </div>
-          </div>
 
-          {/* Row 2: Seek bar */}
-          <div className="flex items-center gap-3 w-full select-none mt-1">
-            <span className="text-[11px] text-white/45 font-mono w-10 text-right shrink-0">
-              {formatTime(currentTime)}
-            </span>
-            <div className="flex-1">
-              <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
-            </div>
-            <span className="text-[11px] text-white/45 font-mono w-10 text-left shrink-0">
-              {formatTime(duration)}
-            </span>
+            {/* Right side spacer to balance the layout */}
+            <div className="w-24 hidden sm:block" />
           </div>
         </div>
-
-        {/* MOBILE UI: stacked card */}
-        <div className="sm:hidden flex flex-col gap-4 rounded-[26px] p-4 glass-panel relative w-full pt-16">
-          <div className="flex items-center justify-between w-full pl-16">
-            <div className="flex flex-col min-w-0">
-              <span className="text-[15px] font-bold truncate text-white leading-tight">
-                {activeTrack.title}
-              </span>
-              <span className="text-xs text-white/60 truncate mt-0.5">
-                {activeTrack.artist}
-              </span>
-            </div>
-          </div>
-
-          {/* Seek bar */}
-          <div className="flex items-center gap-3 w-full select-none mt-1">
-            <span className="text-[10.5px] text-white/45 font-mono w-10 text-right shrink-0">
-              {formatTime(currentTime)}
-            </span>
-            <div className="flex-1">
-              <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
-            </div>
-            <span className="text-[10.5px] text-white/45 font-mono w-10 text-left shrink-0">
-              {formatTime(duration)}
-            </span>
-          </div>
-
-          {/* Row 3: Transport & auxiliary buttons */}
-          <div className="flex items-center justify-between min-h-[48px] px-2 select-none">
-            {/* Playlist Button */}
-            <button
-              onClick={() => setIsPlaylistOpen(true)}
-              className="p-3 text-white/45 hover:text-white cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-              title="Playlist"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
-              </svg>
-            </button>
-
-            {/* Shuffle Button */}
-            <button
-              onClick={() => setIsShuffle(!isShuffle)}
-              className={`p-3 cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center ${
-                isShuffle ? "text-orange-400" : "text-white/45"
-              }`}
-              title="Shuffle"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.656 48.656 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3M4.5 12a48.563 48.563 0 00-.138 3.662 4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l-3 3m3-3l3-3" />
-              </svg>
-            </button>
-
-            {/* Play Once Button */}
-            <button
-              onClick={() => setPlayOnce(!playOnce)}
-              className={`p-3 cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center ${
-                playOnce ? "text-orange-400" : "text-white/45"
-              }`}
-              title="Play Once"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                {playOnce ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662M5.25 5.25h13.5M5.25 18.75h13.5" />
-                )}
-              </svg>
-            </button>
-
-            {/* Prev Button */}
-            <button
-              onClick={handlePrev}
-              className="p-3 text-white/70 hover:text-white cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
-              </svg>
-            </button>
-
-            {/* Play Button */}
-            <button
-              onClick={togglePlay}
-              className="w-11 h-11 bg-white rounded-full flex items-center justify-center text-black cursor-pointer shadow-lg active:scale-95 transition-transform"
-            >
-              {isPlaying ? (
-                <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                </svg>
-              ) : (
-                <svg className="w-5 h-5 text-black translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z"/>
-                </svg>
-              )}
-            </button>
-
-            {/* Next Button */}
-            <button
-              onClick={handleNext}
-              className="p-3 text-white/70 hover:text-white cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M16 18h2V6h-2zM6 18l8.5-6L6 6z"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-
       </div>
 
       {/* Playlist Modal */}
@@ -626,7 +591,7 @@ export const Player: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-white/5">
               <div>
-                <h2 className="text-lg font-bold text-white">ದರ್ಶಿನಿ ಕನ್ನಡ ಪ್ಲೇಲಿಸ್ಟ್</h2>
+                <h2 className="text-lg font-bold text-white font-serif">ಕನ್ನಡ ಕಸ್ತೂರಿ ಪ್ಲೇಲಿಸ್ಟ್</h2>
                 <p className="text-xs text-white/50">{tracks.length} Curated Retro Tracks</p>
               </div>
               <div className="flex items-center gap-3">
@@ -660,7 +625,7 @@ export const Player: React.FC = () => {
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      {/* Left: YouTube Video Thumbnail (16:9 aspect-video) loaded directly from YT CDN */}
+                      {/* Left: YouTube Video Thumbnail loaded directly from YT CDN */}
                       <div className="w-20 aspect-video rounded-lg bg-black border border-white/10 relative shrink-0 overflow-hidden">
                         <img
                           src={`https://img.youtube.com/vi/${trackItem.videoId}/mqdefault.jpg`}
@@ -670,15 +635,15 @@ export const Player: React.FC = () => {
                         />
                         {isActive && isPlaying && (
                           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                            <span className="text-orange-400 text-xs font-bold animate-pulse">▶</span>
+                            <span className="text-amber-400 text-xs font-bold animate-pulse">▶</span>
                           </div>
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className={`text-sm font-semibold truncate ${isActive ? "text-orange-300" : "text-white"}`}>
+                        <p className={`text-sm font-semibold truncate ${isActive ? "text-amber-300" : "text-white"}`}>
                           {index + 1}. {trackItem.title}
                         </p>
-                        <p className="text-xs text-white/50 truncate">
+                        <p className="text-xs text-white/50 truncate font-serif">
                           {trackItem.artist} • {trackItem.film}
                         </p>
                       </div>
@@ -705,11 +670,16 @@ export const Player: React.FC = () => {
             {/* Footer */}
             <div className="pt-4 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
               <span>YouTube Audio Integration • HD Sound</span>
-              <span className="text-orange-400 font-semibold">{tracks.length} Tracks</span>
+              <span className="text-amber-400 font-semibold">{tracks.length} Tracks</span>
             </div>
           </div>
         </div>
       )}
+
+      {/* Hidden YouTube Player Target for Audio Playback */}
+      <div className="fixed bottom-0 right-0 w-1 h-1 opacity-0 pointer-events-none overflow-hidden">
+        <div id={containerId} />
+      </div>
     </>
   );
 };

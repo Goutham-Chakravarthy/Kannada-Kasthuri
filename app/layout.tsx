@@ -9,8 +9,8 @@ const kannadaFont = Noto_Serif_Kannada({
 });
 
 export const metadata: Metadata = {
-  title: "Nostalgia Radio",
-  description: "A nostalgic single-page music site.",
+  title: "Kannada Kasthuri | ಕನ್ನಡ ಕಸ್ತೂರಿ",
+  description: "A nostalgic retro radio player for classic Kannada songs.",
 };
 
 export const viewport: Viewport = {
