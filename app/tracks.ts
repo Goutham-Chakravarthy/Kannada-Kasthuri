@@ -62,25 +62,49 @@ export const tracks: Track[] = [
 export interface PlaylistInfo {
   id: string;
   name: string;
+  description?: string;
+  bgLandscape?: string;
+  bgPortrait?: string;
   tracks: Track[];
 }
 
 export const evergreenTracks = tracks;
 
-export const tracks2000s: Track[] = [];
+export const sadMelodiesTracks: Track[] = [
+  { id: "sm-1", title: "Premada Kadambari", artist: "S. P. Balasubrahmanyam", film: "Bandhana", year: 1984, duration: "4:30", videoId: "UJLPaTAgQVQ" },
+  { id: "sm-2", title: "Noorondu Nenapu", artist: "S. P. Balasubrahmanyam", film: "Bandhana", year: 1984, duration: "4:45", videoId: "GMeix2XBAqE" },
+  { id: "sm-3", title: "Kaanada Oorali Nee Kulitiruve", artist: "S. P. Balasubrahmanyam", film: "Gandhinagara", year: 1968, duration: "4:20", videoId: "Gy5Tf4if_ww" },
+  { id: "sm-4", title: "Preethi Nenapa Meetuva Hrudaya", artist: "S. P. Balasubrahmanyam", film: "Nenapina Doni", year: 1989, duration: "4:35", videoId: "IA0tl9rk8G4" },
+  { id: "sm-5", title: "Aralida Aase Manjina Hoovaythu", artist: "S. P. Balasubrahmanyam", film: "Suprabhatha", year: 1988, duration: "4:40", videoId: "75KWB0QAyhQ" },
+  { id: "sm-6", title: "Nee Meetida Nenapellavu", artist: "S. Janaki", film: "Nee Bareda Kadambari", year: 1985, duration: "4:25", videoId: "kmQ3af5Nmik" },
+  { id: "sm-7", title: "Bisilaadarenu Sagari", artist: "S. Janaki", film: "Benkiya Bale", year: 1983, duration: "4:15", videoId: "EcuvdH-rW3k" },
+  { id: "sm-8", title: "Devara Aata Ballavararu", artist: "S. Janaki", film: "Avala Hejje", year: 1981, duration: "4:30", videoId: "vjOGjT4AmJk" },
+  { id: "sm-9", title: "Nanna Jeeva Neenu", artist: "S. P. Balasubrahmanyam, S. Janaki", film: "Geetha", year: 1981, duration: "4:20", videoId: "ZOaFL9OxO2c" },
+  { id: "sm-10", title: "Yaarige Beku Ee Loka", artist: "K. J. Yesudas", film: "Sipayi", year: 1996, duration: "4:50", videoId: "HZtYxR_ujoA" },
+  { id: "sm-11", title: "Baadi Hoda Balliyinda", artist: "P. B. Sreenivas", film: "Eradu Kanasu", year: 1974, duration: "4:15", videoId: "PtKryKOePAU" },
+  { id: "sm-12", title: "Kangalu Thumbiralu", artist: "S. Janaki", film: "Chandanada Gombe", year: 1979, duration: "4:25", videoId: "Za9OvnFhyJ0" },
+  { id: "sm-13", title: "Nanna Muddu Taare", artist: "S. P. Balasubrahmanyam", film: "Manku Thimma", year: 1980, duration: "4:10", videoId: "4yAiBtct41g" },
+];
 
 export const playlists: PlaylistInfo[] = [
   {
     id: "evergreen",
     name: "Evergreen Hits",
+    description: "Golden retro classics from Kannada cinema",
+    bgLandscape: "/bg/bg-video.mp4",
+    bgPortrait: "/bg/Portrait-mobile.png",
     tracks: evergreenTracks,
   },
   {
-    id: "2000s",
-    name: "2000s",
-    tracks: tracks2000s,
+    id: "sad-melodies",
+    name: "Sad Melodies",
+    description: "Heart-touching soulful and emotional Kannada melodies",
+    bgLandscape: "/bg/bg-video.mp4",
+    bgPortrait: "/bg/Portrait-mobile.png",
+    tracks: sadMelodiesTracks,
   },
 ];
+
 
 export function shuffleTrackList(list: Track[]): Track[] {
   const arr = [...list];
@@ -95,3 +119,5 @@ export function getShuffledTracks(playlistId: string = "evergreen"): Track[] {
   const pl = playlists.find((p) => p.id === playlistId) || playlists[0];
   return shuffleTrackList(pl.tracks);
 }
+
+

@@ -2,20 +2,21 @@ import React from "react";
 import Image from "next/image";
 import { Player } from "@/components/Player";
 import { BackgroundVideo } from "@/components/BackgroundVideo";
-import { getShuffledTracks } from "@/app/tracks";
+import { getPlaylists } from "@/lib/db";
+import { shuffleTrackList } from "@/app/tracks";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default function Home() {
-  const initialTracks = getShuffledTracks();
+export default async function Home() {
+  const initialPlaylists = await getPlaylists();
+  const primaryTracks = initialPlaylists[0]?.tracks || [];
+  const initialTracks = shuffleTrackList(primaryTracks);
+
 
   return (
     <main className="relative flex min-h-dvh flex-1 flex-col items-center justify-between overflow-hidden">
-      {/* 1. Background Video with smooth infinite crossfade (landscape) and portrait mobile background */}
-      <BackgroundVideo src="/bg/bg-video.mp4" portraitImage="/bg/Portrait-mobile.png" />
-
-      {/* 2. Center Hero Screen Graphic */}
+      {/* 1. Center Hero Screen Graphic */}
       <div className="flex-1 w-full flex items-center justify-center z-10 px-4 pt-16 sm:pt-14 pb-2 select-none pointer-events-none">
         <div className="relative flex items-center justify-center group pointer-events-auto">
           <Image
@@ -30,7 +31,7 @@ export default function Home() {
       </div>
 
       {/* 3. The player (including the top row) */}
-      <Player initialTracks={initialTracks} />
+      <Player initialTracks={initialTracks} initialPlaylists={initialPlaylists} />
     </main>
   );
 }

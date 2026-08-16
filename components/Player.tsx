@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { tracks, Track, playlists, shuffleTrackList } from "@/app/tracks";
+import { tracks, Track, playlists, PlaylistInfo, shuffleTrackList } from "@/app/tracks";
+import { BackgroundVideo } from "@/components/BackgroundVideo";
 import { track } from "@vercel/analytics";
 
 // Declarations for YouTube iframe API
@@ -131,11 +132,19 @@ const formatTime = (seconds: number) => {
 // Main Component
 interface PlayerProps {
   initialTracks?: Track[];
+  initialPlaylists?: PlaylistInfo[];
 }
 
-export const Player: React.FC<PlayerProps> = ({ initialTracks }) => {
+export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists }) => {
+  const [allPlaylists, setAllPlaylists] = useState<PlaylistInfo[]>(() =>
+    initialPlaylists && initialPlaylists.length > 0 ? initialPlaylists : playlists
+  );
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>(() =>
+    initialPlaylists && initialPlaylists.length > 0 ? initialPlaylists[0].id : "evergreen"
+  );
+  const activePlaylist = allPlaylists.find((p) => p.id === selectedPlaylistId) || allPlaylists[0] || playlists[0];
   const [playlist, setPlaylist] = useState<Track[]>(() =>
-    initialTracks && initialTracks.length > 0 ? initialTracks : tracks
+    initialTracks && initialTracks.length > 0 ? initialTracks : activePlaylist.tracks
   );
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -144,6 +153,23 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks }) => {
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [onlineCount, setOnlineCount] = useState(86697);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
+
+  // Sync playlists from backend periodically/on-mount
+  useEffect(() => {
+    const syncPlaylists = async () => {
+      try {
+        const res = await fetch("/api/playlists");
+        const data = await res.json();
+        if (data.playlists && Array.isArray(data.playlists) && data.playlists.length > 0) {
+          setAllPlaylists(data.playlists);
+        }
+      } catch (e) {
+        console.error("Failed to sync playlists", e);
+      }
+    };
+    syncPlaylists();
+  }, []);
+
 
   // Playback options states
   const [playOnce, setPlayOnce] = useState(false);
@@ -250,11 +276,16 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks }) => {
           showinfo: 0,
           iv_load_policy: 3,
           modestbranding: 1,
+          enablejsapi: 1,
+          origin: typeof window !== "undefined" ? window.location.origin : "",
         },
         events: {
           onReady: (event: any) => {
             setIsPlayerReady(true);
             setDuration(event.target.getDuration() || 0);
+            if (isPlaying) {
+              event.target.playVideo();
+            }
           },
           onStateChange: (event: any) => {
             // YT.PlayerState: 1 (PLAYING), 2 (PAUSED), 0 (ENDED)
@@ -275,9 +306,12 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks }) => {
             }
           },
           onError: (event: any) => {
-            console.error("YouTube Player Error", event.data);
+            console.error("YouTube Player Error code:", event.data, "for videoId:", activeTrack.videoId);
             track("VideoPlayError", { videoId: activeTrack.videoId, errorCode: event.data });
-            handleNext();
+            // Auto skip unplayable / embed-restricted videos
+            setTimeout(() => {
+              handleNext();
+            }, 800);
           },
         },
       });
@@ -296,20 +330,35 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks }) => {
     };
   }, []);
 
-  // Update track when index changes
+  // Update track whenever activeTrack.videoId changes (prev/next or playlist switch)
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
       playerRef.current.loadVideoById(activeTrack.videoId);
       setIsPlaying(true);
     }
-  }, [currentTrackIndex]);
+  }, [activeTrack.videoId]);
 
   const togglePlay = () => {
     if (!playerRef.current) return;
-    if (isPlaying) {
-      playerRef.current.pauseVideo();
-    } else {
-      playerRef.current.playVideo();
+    try {
+      if (isPlaying) {
+        if (typeof playerRef.current.pauseVideo === "function") {
+          playerRef.current.pauseVideo();
+        }
+      } else {
+        if (typeof playerRef.current.playVideo === "function") {
+          playerRef.current.playVideo();
+        } else if (typeof playerRef.current.loadVideoById === "function") {
+          playerRef.current.loadVideoById(activeTrack.videoId);
+        }
+      }
+    } catch (e) {
+      console.error("togglePlay error", e);
     }
   };
 
@@ -342,6 +391,12 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks }) => {
 
   return (
     <>
+      {/* Dynamic Background reactive to active playlist */}
+      <BackgroundVideo
+        src={activePlaylist.bgLandscape || "/bg/bg-video.mp4"}
+        portraitImage={activePlaylist.bgPortrait || "/bg/Portrait-mobile.png"}
+      />
+
       {/* Top row - fixed corners */}
       <header className="fixed top-0 inset-x-0 flex items-center justify-between select-none z-30 px-[max(1rem,env(safe-area-inset-left))] py-[max(1.2rem,env(safe-area-inset-top))]">
         {/* Clock top-left */}
@@ -368,22 +423,71 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks }) => {
         {isPlaylistOpen && (
           <div
             ref={playlistRef}
-            className="playlist-glass-card absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[calc(100%-1.5rem)] sm:w-full max-w-xl overflow-hidden rounded-3xl z-30 flex flex-col max-h-[48vh] sm:max-h-[56vh] text-left p-4 sm:p-5 animate-in fade-in zoom-in-95 duration-150"
+            className="playlist-glass-card absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[calc(100%-1.5rem)] sm:w-full max-w-xl overflow-hidden rounded-3xl z-30 flex flex-col max-h-[50vh] sm:max-h-[58vh] text-left p-3.5 sm:p-5 animate-in fade-in zoom-in-95 duration-150"
           >
+            {/* Playlist Tabs Switcher */}
+            <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-2xl border border-white/10 mb-3">
+              {allPlaylists.map((pl) => {
+                const isSelected = pl.id === selectedPlaylistId;
+                return (
+                  <button
+                    key={pl.id}
+                    onClick={() => {
+                      if (pl.id !== selectedPlaylistId) {
+                        setSelectedPlaylistId(pl.id);
+                        setPlaylist(pl.tracks);
+                        setCurrentTrackIndex(0);
+                        setIsPlaying(true);
+                      }
+                    }}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs sm:text-[13px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      isSelected
+                        ? "bg-white/20 text-white shadow-sm border border-white/15 font-semibold"
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <span>{pl.name}</span>
+                    <span className="text-[10px] font-mono opacity-65">({pl.tracks.length})</span>
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Header */}
-            <div className="flex items-center justify-between px-2 pt-1 pb-3">
-              <h2 className="text-white/90 text-sm sm:text-[15px] font-normal tracking-wide">
-                All songs
-              </h2>
-              <button
-                onClick={() => setIsPlaylistOpen(false)}
-                className="text-white/50 hover:text-white transition-colors p-1 -mr-1 cursor-pointer rounded-full hover:bg-white/10"
-                title="Close"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+            <div className="flex items-center justify-between px-2 pt-0.5 pb-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <h2 className="text-white/95 text-xs sm:text-sm font-semibold tracking-wide truncate">
+                  {activePlaylist.name}
+                </h2>
+                <span className="text-[11px] sm:text-xs text-white/45 font-mono shrink-0">
+                  • {playlist.length} songs
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => {
+                    const shuffled = shuffleTrackList(playlist);
+                    setPlaylist(shuffled);
+                    setCurrentTrackIndex(0);
+                    setIsPlaying(true);
+                  }}
+                  className="text-white/60 hover:text-white transition-colors p-1.5 cursor-pointer rounded-full hover:bg-white/10"
+                  title="Shuffle Playlist"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.656 48.656 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3M4.5 12a48.563 48.563 0 00-.138 3.662 4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l-3 3m3-3l3-3" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setIsPlaylistOpen(false)}
+                  className="text-white/50 hover:text-white transition-colors p-1 -mr-1 cursor-pointer rounded-full hover:bg-white/10"
+                  title="Close"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* List */}
@@ -429,13 +533,34 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks }) => {
           </div>
         )}
 
-        {/* Floating Pill: Play a random memory */}
-        <button
-          onClick={playRandomMemory}
-          className="px-4.5 py-1.5 rounded-full bg-[#18181b]/85 hover:bg-[#27272a]/95 active:scale-95 border border-white/10 text-white/90 text-xs sm:text-[13px] font-medium shadow-xl backdrop-blur-md transition-all cursor-pointer flex items-center justify-center gap-1.5 hover:border-white/20"
-        >
-          <span>Play a random memory</span>
-        </button>
+        {/* Separate Floating Playlist Capsules (No icons) */}
+        <div className="flex items-center justify-center gap-2 sm:gap-2.5 select-none">
+          {allPlaylists.map((pl) => {
+            const isSelected = pl.id === selectedPlaylistId;
+            return (
+              <button
+                key={pl.id}
+                onClick={() => {
+                  if (pl.id !== selectedPlaylistId) {
+                    setSelectedPlaylistId(pl.id);
+                    setPlaylist(pl.tracks);
+                    setCurrentTrackIndex(0);
+                    setIsPlaying(true);
+                  } else {
+                    setIsPlaylistOpen((prev) => !prev);
+                  }
+                }}
+                className={`px-4.5 sm:px-5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all cursor-pointer shadow-xl backdrop-blur-md active:scale-95 border ${
+                  isSelected
+                    ? "bg-[#27272a]/95 text-white border-white/30 shadow-[0_4px_16px_rgba(0,0,0,0.5)] font-semibold scale-[1.02]"
+                    : "bg-[#18181b]/80 text-white/65 border-white/10 hover:text-white hover:bg-[#27272a]/80 hover:border-white/20"
+                }`}
+              >
+                {pl.name}
+              </button>
+            );
+          })}
+        </div>
 
         {/* Capsule Pill Bar */}
         <div className="capsule-player rounded-full w-full p-2.5 sm:p-3 pl-2.5 sm:pl-3.5 pr-4 sm:pr-5 flex items-center gap-3 sm:gap-4 shadow-2xl relative overflow-hidden">
@@ -558,8 +683,11 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks }) => {
         </div>
       </div>
 
-      {/* Hidden YouTube Player Target for Audio Playback */}
-      <div className="fixed bottom-0 right-0 w-1 h-1 opacity-0 pointer-events-none overflow-hidden">
+      {/* Off-screen YouTube Player Target for Audio Playback with proper dimensions */}
+      <div
+        className="fixed -left-[9999px] -top-[9999px] w-[320px] h-[240px] pointer-events-none opacity-[0.001]"
+        aria-hidden="true"
+      >
         <div id={containerId} />
       </div>
     </>
