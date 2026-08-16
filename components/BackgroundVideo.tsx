@@ -2,11 +2,24 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 
-const CROSSFADE_DURATION = 1.5; // Crossfade duration in seconds
+const CROSSFADE_DURATION = 1.5; // Video loop crossfade in seconds
+
+export function isVideoUrl(url?: string): boolean {
+  if (!url) return false;
+  const clean = url.split("?")[0].toLowerCase();
+  return (
+    clean.endsWith(".mp4") ||
+    clean.endsWith(".webm") ||
+    clean.endsWith(".ogg") ||
+    clean.endsWith(".mov") ||
+    clean.includes("/video") ||
+    clean.includes(".mp4?")
+  );
+}
 
 interface BackgroundVideoProps {
-  src?: string;
-  portraitImage?: string;
+  src?: string; // Landscape source (video or image)
+  portraitImage?: string; // Portrait source (video or image)
   className?: string;
 }
 
@@ -15,14 +28,20 @@ export const BackgroundVideo: React.FC<BackgroundVideoProps> = ({
   portraitImage = "/bg/Portrait-mobile.png",
   className = "",
 }) => {
+  const [isPortrait, setIsPortrait] = useState<boolean>(false);
+
+  // Video refs for landscape looping
   const videoRefA = useRef<HTMLVideoElement | null>(null);
   const videoRefB = useRef<HTMLVideoElement | null>(null);
+  const portraitVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // 'A' or 'B' is currently the primary visible video
   const [activeLayer, setActiveLayer] = useState<"A" | "B">("A");
   const [isFading, setIsFading] = useState<boolean>(false);
-  const [hasStarted, setHasStarted] = useState<boolean>(false);
-  const [isPortrait, setIsPortrait] = useState<boolean>(false);
+
+  // Smooth media transition state when changing playlists
+  const [currentLandscapeSrc, setCurrentLandscapeSrc] = useState(src);
+  const [currentPortraitSrc, setCurrentPortraitSrc] = useState(portraitImage);
 
   const activeLayerRef = useRef<"A" | "B">("A");
   const isFadingRef = useRef<boolean>(false);
@@ -45,6 +64,15 @@ export const BackgroundVideo: React.FC<BackgroundVideoProps> = ({
     };
   }, []);
 
+  // Update background sources when props change with smooth transition
+  useEffect(() => {
+    setCurrentLandscapeSrc(src || "/bg/bg-video.mp4");
+  }, [src]);
+
+  useEffect(() => {
+    setCurrentPortraitSrc(portraitImage || "/bg/Portrait-mobile.png");
+  }, [portraitImage]);
+
   useEffect(() => {
     activeLayerRef.current = activeLayer;
   }, [activeLayer]);
@@ -53,7 +81,7 @@ export const BackgroundVideo: React.FC<BackgroundVideoProps> = ({
     isFadingRef.current = isFading;
   }, [isFading]);
 
-  // Handle switching to the next video layer
+  // Handle switching to next video layer in landscape video loop
   const startCrossfade = useCallback(() => {
     if (isFadingRef.current) return;
     isFadingRef.current = true;
@@ -76,7 +104,6 @@ export const BackgroundVideo: React.FC<BackgroundVideoProps> = ({
 
     setActiveLayer(nextLayer);
 
-    // After transition duration completes, pause the previous video and reset its position
     setTimeout(() => {
       if (currentVideo) {
         currentVideo.pause();
@@ -87,7 +114,6 @@ export const BackgroundVideo: React.FC<BackgroundVideoProps> = ({
     }, CROSSFADE_DURATION * 1000);
   }, []);
 
-  // Monitor playback progress for initiating crossfade before end
   const handleTimeUpdate = useCallback(
     (layer: "A" | "B") => {
       if (layer !== activeLayerRef.current || isFadingRef.current) return;
@@ -112,87 +138,112 @@ export const BackgroundVideo: React.FC<BackgroundVideoProps> = ({
     [startCrossfade]
   );
 
-  // Initial playback start for landscape mode
+  // Playback initialization when switching sources or orientation
   useEffect(() => {
-    if (isPortrait) {
-      if (videoRefA.current) videoRefA.current.pause();
-      if (videoRefB.current) videoRefB.current.pause();
-      return;
-    }
-
-    const videoA = videoRefA.current;
-    if (videoA) {
-      videoA.currentTime = 0;
-      const playPromise = videoA.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setHasStarted(true);
-          })
-          .catch((err) => {
-            console.warn("Initial autoplay prevented:", err);
-            // Retry on user interaction anywhere on the window
-            const handleUserInteraction = () => {
-              videoA.play().then(() => setHasStarted(true)).catch(() => {});
-              window.removeEventListener("click", handleUserInteraction);
-              window.removeEventListener("touchstart", handleUserInteraction);
-              window.removeEventListener("keydown", handleUserInteraction);
+    const isLandscapeVideo = isVideoUrl(currentLandscapeSrc);
+    if (!isPortrait && isLandscapeVideo) {
+      const videoA = videoRefA.current;
+      if (videoA) {
+        videoA.currentTime = 0;
+        const playPromise = videoA.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            const unlock = () => {
+              videoA.play().catch(() => {});
+              window.removeEventListener("click", unlock);
+              window.removeEventListener("touchstart", unlock);
             };
-            window.addEventListener("click", handleUserInteraction, { once: true });
-            window.addEventListener("touchstart", handleUserInteraction, { once: true });
-            window.addEventListener("keydown", handleUserInteraction, { once: true });
+            window.addEventListener("click", unlock, { once: true });
+            window.addEventListener("touchstart", unlock, { once: true });
           });
+        }
       }
     }
-  }, [isPortrait]);
+  }, [isPortrait, currentLandscapeSrc]);
+
+  // Portrait video autoplay
+  useEffect(() => {
+    const isPortraitVideo = isVideoUrl(currentPortraitSrc);
+    if (isPortrait && isPortraitVideo && portraitVideoRef.current) {
+      portraitVideoRef.current.play().catch(() => {});
+    }
+  }, [isPortrait, currentPortraitSrc]);
+
+  const isLandscapeVideo = isVideoUrl(currentLandscapeSrc);
+  const isPortraitVideo = isVideoUrl(currentPortraitSrc);
 
   return (
     <div
-      className={`fixed inset-0 -z-20 w-full h-full overflow-hidden bg-black ${className}`}
+      className={`fixed inset-0 -z-20 w-full h-full overflow-hidden bg-[#0a090b] ${className}`}
       aria-hidden="true"
     >
-      {/* 1. Portrait Background Image (shown on portrait resolutions / mobile portrait) */}
-      <div
-        className="portrait:block landscape:hidden absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat transition-opacity duration-700"
-        style={{ backgroundImage: `url(${portraitImage})` }}
-      />
-
-      {/* 2. Landscape Video Background Layers (shown on landscape / desktop resolutions) */}
-      <div className="portrait:hidden landscape:block absolute inset-0 w-full h-full">
-        {/* Video Layer A */}
-        <video
-          ref={videoRefA}
-          src={src}
-          playsInline
-          autoPlay
-          muted
-          preload="auto"
-          onTimeUpdate={() => handleTimeUpdate("A")}
-          onEnded={() => handleEnded("A")}
-          onPlaying={() => setHasStarted(true)}
-          className="absolute inset-0 w-full h-full object-fill pointer-events-none transition-opacity duration-1500 ease-in-out will-change-[opacity]"
-          style={{
-            opacity: activeLayer === "A" ? 1 : 0,
-            zIndex: activeLayer === "A" ? 2 : 1,
-          }}
-        />
-
-        {/* Video Layer B */}
-        <video
-          ref={videoRefB}
-          src={src}
-          playsInline
-          muted
-          preload="auto"
-          onTimeUpdate={() => handleTimeUpdate("B")}
-          onEnded={() => handleEnded("B")}
-          className="absolute inset-0 w-full h-full object-fill pointer-events-none transition-opacity duration-1500 ease-in-out will-change-[opacity]"
-          style={{
-            opacity: activeLayer === "B" ? 1 : 0,
-            zIndex: activeLayer === "B" ? 2 : 1,
-          }}
-        />
+      {/* 1. Portrait Background (Shown on mobile portrait resolutions) */}
+      <div className="portrait:block landscape:hidden absolute inset-0 w-full h-full">
+        {isPortraitVideo ? (
+          <video
+            ref={portraitVideoRef}
+            src={currentPortraitSrc}
+            playsInline
+            autoPlay
+            loop
+            muted
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-700 ease-in-out"
+          />
+        ) : (
+          <div
+            className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat transition-all duration-700 ease-in-out scale-100"
+            style={{ backgroundImage: `url(${currentPortraitSrc})` }}
+          />
+        )}
       </div>
+
+      {/* 2. Landscape Background (Shown on desktop/landscape resolutions) */}
+      <div className="portrait:hidden landscape:block absolute inset-0 w-full h-full">
+        {isLandscapeVideo ? (
+          <>
+            {/* Video Layer A */}
+            <video
+              ref={videoRefA}
+              src={currentLandscapeSrc}
+              playsInline
+              autoPlay
+              muted
+              preload="auto"
+              onTimeUpdate={() => handleTimeUpdate("A")}
+              onEnded={() => handleEnded("A")}
+              className="absolute inset-0 w-full h-full object-fill pointer-events-none transition-opacity duration-1000 ease-in-out will-change-[opacity]"
+              style={{
+                opacity: activeLayer === "A" ? 1 : 0,
+                zIndex: activeLayer === "A" ? 2 : 1,
+              }}
+            />
+
+            {/* Video Layer B */}
+            <video
+              ref={videoRefB}
+              src={currentLandscapeSrc}
+              playsInline
+              muted
+              preload="auto"
+              onTimeUpdate={() => handleTimeUpdate("B")}
+              onEnded={() => handleEnded("B")}
+              className="absolute inset-0 w-full h-full object-fill pointer-events-none transition-opacity duration-1000 ease-in-out will-change-[opacity]"
+              style={{
+                opacity: activeLayer === "B" ? 1 : 0,
+                zIndex: activeLayer === "B" ? 2 : 1,
+              }}
+            />
+          </>
+        ) : (
+          <div
+            className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat transition-all duration-700 ease-in-out"
+            style={{ backgroundImage: `url(${currentLandscapeSrc})` }}
+          />
+        )}
+      </div>
+
+      {/* Subtle global dark overlay for high readability */}
+      <div className="absolute inset-0 bg-black/35 pointer-events-none" />
     </div>
   );
 };
