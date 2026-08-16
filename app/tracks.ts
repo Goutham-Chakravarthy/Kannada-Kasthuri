@@ -57,6 +57,41 @@ export const tracks: Track[] = [
   { id: "46", title: "Harivarasanam Sharanam Ayyappa", artist: "K J Yesudas", film: "Swamy Ayyappaan", year: 1975, duration: "4:50", videoId: "3gqhhdszTqQ" },
   { id: "47", title: "Santhoshakke", artist: "S. P. Balasubrahmanyam", film: "Geetha", year: 1981, duration: "4:30", videoId: "neLfupVwObI" },
   { id: "48", title: "Naliva Gulabi Hoove", artist: "S. P. Balasubrahmanyam", film: "Auto Raja", year: 1980, duration: "4:25", videoId: "qrTvmCyGjvo" },
-  { id: "49", title: "Jenina Holeyo", artist: "Dr. Rajkumar", film: "Chelisuva Modagalu", year: 1982, duration: "4:20", videoId: "EpwtGYuUzno" },
-  { id: "50", title: "Bandeya Baalina", artist: "S. Janaki, S. P. Balasubrahmanyam", film: "Avala Hejje", year: 1981, duration: "4:35", videoId: "oX67i2CbgqM" }
 ];
+
+export interface PlaylistInfo {
+  id: string;
+  name: string;
+  tracks: Track[];
+}
+
+export const evergreenTracks = tracks;
+
+export const tracks2000s: Track[] = [];
+
+export const playlists: PlaylistInfo[] = [
+  {
+    id: "evergreen",
+    name: "Evergreen Hits",
+    tracks: evergreenTracks,
+  },
+  {
+    id: "2000s",
+    name: "2000s",
+    tracks: tracks2000s,
+  },
+];
+
+export function shuffleTrackList(list: Track[]): Track[] {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+export function getShuffledTracks(playlistId: string = "evergreen"): Track[] {
+  const pl = playlists.find((p) => p.id === playlistId) || playlists[0];
+  return shuffleTrackList(pl.tracks);
+}

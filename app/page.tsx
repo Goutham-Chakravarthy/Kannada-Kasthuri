@@ -1,29 +1,36 @@
 import React from "react";
+import Image from "next/image";
 import { Player } from "@/components/Player";
+import { BackgroundVideo } from "@/components/BackgroundVideo";
+import { getShuffledTracks } from "@/app/tracks";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default function Home() {
+  const initialTracks = getShuffledTracks();
+
   return (
     <main className="relative flex min-h-dvh flex-1 flex-col items-center justify-between overflow-hidden">
-      {/* 1. Fixed background div */}
-      <div className="fixed inset-0 -z-20 hero-bg bg-cover bg-center">
-        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/80" />
+      {/* 1. Background Video with smooth infinite crossfade (landscape) and portrait mobile background */}
+      <BackgroundVideo src="/bg/bg-video.mp4" portraitImage="/bg/Portrait-mobile.png" />
+
+      {/* 2. Center Hero Screen Graphic */}
+      <div className="flex-1 w-full flex items-center justify-center z-10 px-4 pt-16 sm:pt-14 pb-2 select-none pointer-events-none">
+        <div className="relative flex items-center justify-center group pointer-events-auto">
+          <Image
+            src="/bg/Hero.png"
+            alt="ಕನ್ನಡ ಕಸ್ತೂರಿ"
+            width={947}
+            height={706}
+            priority
+            className="w-[320px] xs:w-[360px] sm:w-[460px] md:w-[560px] lg:w-[680px] xl:w-[760px] h-auto max-h-[50vh] object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.75)] transition-transform duration-500 ease-out hover:scale-105 cursor-pointer select-none"
+          />
+        </div>
       </div>
 
-      {/* 2. Fixed grain overlay */}
-      <div
-        className="fixed inset-0 pointer-events-none -z-10"
-        style={{
-          backgroundImage: `url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E')`,
-          mixBlendMode: "overlay",
-          opacity: 0.3,
-        }}
-      />
-
-      {/* Spacer to push player to the bottom */}
-      <div className="flex-1" />
-
       {/* 3. The player (including the top row) */}
-      <Player />
+      <Player initialTracks={initialTracks} />
     </main>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { tracks, Track } from "@/app/tracks";
+import { tracks, Track, playlists, shuffleTrackList } from "@/app/tracks";
 import { track } from "@vercel/analytics";
 
 // Declarations for YouTube iframe API
@@ -99,21 +99,21 @@ const SeekBar: React.FC<SeekProps> = ({ currentTime, duration, onSeek }) => {
     <div
       ref={barRef}
       onPointerDown={handlePointerDown}
-      className="relative w-full h-6 flex items-center cursor-pointer touch-none group/seek"
+      className="relative w-full h-3.5 flex items-center cursor-pointer touch-none group/seek"
     >
-      {/* Invisible larger hit area (24px) */}
-      <div className="absolute inset-0 h-6" />
+      {/* Invisible hit area */}
+      <div className="absolute inset-0 h-full" />
       
       {/* Visible rail (3px) */}
-      <div className="w-full h-[3px] rounded-full bg-white/15 relative overflow-visible">
-        {/* Track fill with soft glow */}
+      <div className="w-full h-[3px] rounded-full bg-white/20 relative overflow-visible">
+        {/* Track fill */}
         <div
-          className="absolute top-0 left-0 h-full bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.5)]"
+          className="absolute top-0 left-0 h-full bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.4)]"
           style={{ width: `${pct}%` }}
         />
-        {/* Knob visible on hover only */}
+        {/* Knob */}
         <div
-          className="absolute top-1/2 -translate-y-1/2 -ml-1.5 w-3 h-3 rounded-full bg-white border border-white opacity-0 group-hover/seek:opacity-100 transition-opacity pointer-events-none"
+          className="absolute top-1/2 -translate-y-1/2 -ml-1 w-2.5 h-2.5 rounded-full bg-white opacity-0 group-hover/seek:opacity-100 transition-opacity pointer-events-none shadow-sm"
           style={{ left: `${pct}%` }}
         />
       </div>
@@ -129,32 +129,53 @@ const formatTime = (seconds: number) => {
 };
 
 // Main Component
-export const Player: React.FC = () => {
+interface PlayerProps {
+  initialTracks?: Track[];
+}
+
+export const Player: React.FC<PlayerProps> = ({ initialTracks }) => {
+  const [playlist, setPlaylist] = useState<Track[]>(() =>
+    initialTracks && initialTracks.length > 0 ? initialTracks : tracks
+  );
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [onlineCount, setOnlineCount] = useState(86697);
-  const [hasInteracted, setHasInteracted] = useState(false);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
 
   // Playback options states
-  const [isShuffle, setIsShuffle] = useState(false);
   const [playOnce, setPlayOnce] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
   const playerRef = useRef<any>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const containerId = "youtube-player-element";
-  const activeTrack = tracks[currentTrackIndex];
+  const activeTrack = playlist[currentTrackIndex] || playlist[0] || tracks[0];
+
+  const playRandomMemory = () => {
+    let randomIndex = Math.floor(Math.random() * playlist.length);
+    if (randomIndex === currentTrackIndex && playlist.length > 1) {
+      randomIndex = (randomIndex + 1) % playlist.length;
+    }
+    setCurrentTrackIndex(randomIndex);
+    setIsPlaying(true);
+  };
+
+  const toggleMute = () => {
+    if (!playerRef.current) return;
+    if (isMuted) {
+      if (typeof playerRef.current.unMute === "function") playerRef.current.unMute();
+      setIsMuted(false);
+    } else {
+      if (typeof playerRef.current.mute === "function") playerRef.current.mute();
+      setIsMuted(true);
+    }
+  };
 
   // Ref trackers to prevent stale closures in event listener callbacks
-  const isShuffleRef = useRef(isShuffle);
   const playOnceRef = useRef(playOnce);
-
-  useEffect(() => {
-    isShuffleRef.current = isShuffle;
-  }, [isShuffle]);
 
   useEffect(() => {
     playOnceRef.current = playOnce;
@@ -199,21 +220,11 @@ export const Player: React.FC = () => {
 
   // Next and Prev track logic
   const handleNext = () => {
-    if (isShuffleRef.current) {
-      const randomIndex = Math.floor(Math.random() * tracks.length);
-      setCurrentTrackIndex(randomIndex);
-    } else {
-      setCurrentTrackIndex(prev => (prev + 1) % tracks.length);
-    }
+    setCurrentTrackIndex(prev => (prev + 1) % playlist.length);
   };
 
   const handlePrev = () => {
-    if (isShuffleRef.current) {
-      const randomIndex = Math.floor(Math.random() * tracks.length);
-      setCurrentTrackIndex(randomIndex);
-    } else {
-      setCurrentTrackIndex(prev => (prev - 1 + tracks.length) % tracks.length);
-    }
+    setCurrentTrackIndex(prev => (prev - 1 + playlist.length) % playlist.length);
   };
 
   // Load YouTube Player API
@@ -309,6 +320,26 @@ export const Player: React.FC = () => {
     }
   };
 
+  const playlistRef = useRef<HTMLDivElement | null>(null);
+
+  // Click outside to close playlist popover
+  useEffect(() => {
+    if (!isPlaylistOpen) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (playlistRef.current && !playlistRef.current.contains(e.target as Node)) {
+        const target = e.target as HTMLElement;
+        if (target.closest("[data-playlist-toggle]")) return;
+        setIsPlaylistOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [isPlaylistOpen]);
+
   return (
     <>
       {/* Top row - fixed corners */}
@@ -327,288 +358,37 @@ export const Player: React.FC = () => {
           </span>
         </div>
 
-        {/* Top-right corner label */}
-        <div className="flex items-center gap-4 text-sm font-bold drop-shadow-md text-amber-200/90 font-serif">
-          ಕನ್ನಡ ಕಸ್ತೂರಿ
-        </div>
+        {/* Balance spacer for top-right so online pill stays centered */}
+        <div className="w-24 hidden sm:block pointer-events-none" />
       </header>
 
-      {/* Kannada Landing Page Overlay */}
-      {!hasInteracted && (
-        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center p-6 text-center bg-black/75 backdrop-blur-sm transition-all duration-500">
-          {/* Logo Badge / Spinning Vinyl Style */}
-          <div className="w-24 h-24 rounded-full bg-black/60 border border-white/10 flex items-center justify-center shadow-2xl mb-8 relative group cursor-pointer animate-spin-vinyl">
-            <span className="text-4xl select-none">📻</span>
-            <div className="absolute inset-0 rounded-full border border-amber-500/30 animate-ping" style={{ animationDuration: '3s' }} />
-          </div>
-
-          {/* Kannada Title */}
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-wide text-amber-50 font-serif mb-2 drop-shadow-lg">
-            ಕನ್ನಡ ಕಸ್ತೂರಿ
-          </h1>
-          <p className="text-xs font-semibold tracking-widest text-amber-400/80 font-mono uppercase mb-8 select-none">
-            Kannada Kasthuri
-          </p>
-
-          {/* Subtext / Description */}
-          <p className="text-sm sm:text-base text-white/80 max-w-md leading-relaxed mb-10 px-4">
-            ನಮಸ್ಕಾರ — ಕನ್ನಡ ಕಸ್ತೂರಿಗೆ ಸುಸ್ವಾಗತ. <br />
-            <span className="text-white/60 text-xs sm:text-sm mt-2 block font-serif">
-              ಚಹಾದ ಸವಿಯೊಂದಿಗೆ ಹಳೆಯ ಮಧುರ ಕನ್ನಡ ಗೀತೆಗಳ ಸವಾರಿ.
-            </span>
-          </p>
-
-          {/* Play / Enter Button */}
-          <button
-            onClick={() => {
-              setHasInteracted(true);
-              togglePlay();
-            }}
-            className="flex items-center gap-4 bg-white/5 border border-white/10 hover:bg-white/10 rounded-full p-2 pr-6 cursor-pointer transform active:scale-95 transition-all shadow-xl hover:shadow-amber-500/10 group"
+      {/* Main Bottom Player Container */}
+      <div className="pointer-events-auto relative flex flex-col items-center gap-2.5 sm:gap-3 w-full max-w-[620px] sm:max-w-[660px] px-3 sm:px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] z-20 mt-auto select-none">
+        {/* Glassmorphic Playlist Popover directly above player */}
+        {isPlaylistOpen && (
+          <div
+            ref={playlistRef}
+            className="playlist-glass-card absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[calc(100%-1.5rem)] sm:w-full max-w-xl overflow-hidden rounded-3xl z-30 flex flex-col max-h-[48vh] sm:max-h-[56vh] text-left p-4 sm:p-5 animate-in fade-in zoom-in-95 duration-150"
           >
-            <div className="w-12 h-12 bg-gradient-to-b from-amber-500 to-orange-700 rounded-full flex items-center justify-center shadow-[0_4px_12px_rgba(245,158,11,0.4)] group-hover:from-amber-400 group-hover:to-orange-600 transition-colors">
-              <svg className="w-6 h-6 text-white translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-            <div className="text-left">
-              <div className="text-sm font-bold text-white tracking-wide">ರೇಡಿಯೋ ಆನ್ ಮಾಡಿ</div>
-              <div className="text-[10px] text-white/50 font-semibold uppercase">Plays Out Loud</div>
-            </div>
-          </button>
-
-          {/* Footnote */}
-          <p className="text-[10px] text-white/40 max-w-xs mt-8 leading-normal select-none">
-            ಪ್ಲೇ ಒತ್ತಿದ ನಂತರ ಆಡಿಯೋ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ. ಸ್ಪೇಸ್ ಬಾರ್ ಅಥವಾ ಕ್ಲಿಕ್ ಬಳಸಿ ಪ್ಲೇ/ಪಾಸ್ ಮಾಡಬಹುದು.
-          </p>
-        </div>
-      )}
-
-      {/* Central Retro Title Section */}
-      <div className="flex-1 flex flex-col items-center justify-center text-center select-none px-4 mt-20 sm:mt-24">
-        {/* Retro play badge above the title */}
-        <div 
-          onClick={togglePlay}
-          className="w-16 h-16 rounded-full bg-neutral-900/80 border border-white/15 flex items-center justify-center shadow-2xl mb-6 relative group cursor-pointer transition-transform duration-300 hover:scale-105"
-        >
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-red-600 flex items-center justify-center shadow-md">
-            {isPlaying ? (
-              <span className="w-4 h-4 flex gap-1 justify-center items-center">
-                <span className="w-1 h-4 bg-white rounded-full animate-pulse" />
-                <span className="w-1 h-3 bg-white rounded-full animate-pulse [animation-delay:0.2s]" />
-                <span className="w-1 h-4 bg-white rounded-full animate-pulse [animation-delay:0.4s]" />
-              </span>
-            ) : (
-              <svg className="w-5 h-5 text-white translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            )}
-          </div>
-          <div className="absolute inset-0 rounded-full border border-amber-500/20 animate-ping pointer-events-none" style={{ animationDuration: '3s' }} />
-        </div>
-
-        {/* Styled Kannada Retro Title */}
-        <h1 className="text-5xl sm:text-7xl font-extrabold tracking-wide text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] font-serif relative">
-          <span className="bg-gradient-to-b from-amber-100 via-amber-200 to-orange-100 bg-clip-text text-transparent filter drop-shadow-[0_2px_4px_rgba(251,191,36,0.4)]">
-            ಕನ್ನಡ ಕಸ್ತೂರಿ
-          </span>
-        </h1>
-
-        {/* English Subtitle */}
-        <p className="text-[10px] sm:text-xs font-bold tracking-[0.35em] text-amber-500/90 font-mono uppercase mt-3 drop-shadow-md">
-          KANNADA KASTHURI
-        </p>
-
-        {/* Now Playing Badge */}
-        <div className="mt-6 px-4 py-1.5 rounded-full bg-black/40 border border-white/5 backdrop-blur-md flex items-center gap-2">
-          <span className="text-[9px] sm:text-[10px] font-bold tracking-widest text-white/50 uppercase font-mono">
-            NOW PLAYING
-          </span>
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-          <span className="text-xs sm:text-sm font-medium text-amber-200 font-serif">
-            {activeTrack.film}
-          </span>
-        </div>
-      </div>
-
-      {/* Main player box wrapper */}
-      <div className="relative w-full max-w-2xl px-4 pb-[max(2rem,env(safe-area-inset-bottom))] z-20 mt-auto">
-        <div className="flex flex-col gap-4 rounded-[28px] p-5 glass-panel relative w-full">
-          {/* Main Info Row (Thumbnail + Details + Quick Links) */}
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full">
-            {/* Thumbnail Box */}
-            <div className="relative w-full sm:w-40 aspect-video rounded-2xl bg-neutral-950 border border-white/10 overflow-hidden shrink-0 shadow-inner group">
-              <img
-                src={`https://img.youtube.com/vi/${activeTrack.videoId}/mqdefault.jpg`}
-                alt={activeTrack.title}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              {/* Overlay shadow to look premium */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
-            </div>
-
-            {/* Song Info & External Links */}
-            <div className="flex-1 min-w-0 w-full text-center sm:text-left flex flex-col justify-between h-full py-1">
-              <div>
-                <h3 className="text-lg sm:text-xl font-bold text-white truncate tracking-wide leading-tight">
-                  {activeTrack.title}
-                </h3>
-                <p className="text-xs sm:text-sm text-amber-200/80 truncate mt-1">
-                  {activeTrack.artist}
-                </p>
-                <p className="text-[11px] text-white/40 truncate mt-0.5 font-mono">
-                  {activeTrack.film} ({activeTrack.year})
-                </p>
-              </div>
-
-              {/* Action Buttons (Spotify / YT Music / YouTube) */}
-              <div className="flex items-center justify-center sm:justify-start gap-2 mt-3.5">
-                <a
-                  href={`https://music.youtube.com/watch?v=${activeTrack.videoId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 transition-all shadow-sm"
-                >
-                  YT Music ↗
-                </a>
-                <a
-                  href={`https://youtu.be/${activeTrack.videoId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 transition-all shadow-sm"
-                >
-                  YouTube ↗
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Seekbar Section */}
-          <div className="flex items-center gap-3 w-full select-none mt-2">
-            <span className="text-[10px] text-white/40 font-mono w-8 text-right shrink-0">
-              {formatTime(currentTime)}
-            </span>
-            <div className="flex-1">
-              <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
-            </div>
-            <span className="text-[10px] text-white/40 font-mono w-8 text-left shrink-0">
-              {formatTime(duration)}
-            </span>
-          </div>
-
-          {/* Control Bar Section */}
-          <div className="flex items-center justify-between w-full mt-1 border-t border-white/5 pt-3">
-            {/* Left controls: Playlist toggle, Shuffle, Repeat */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setIsPlaylistOpen(true)}
-                className="p-2 text-white/50 hover:text-white rounded-full hover:bg-white/5 transition-colors cursor-pointer"
-                title="Playlist"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
-                </svg>
-              </button>
-
-              <button
-                onClick={() => setIsShuffle(!isShuffle)}
-                className={`p-2 rounded-full hover:bg-white/5 transition-all cursor-pointer ${
-                  isShuffle ? "text-amber-400" : "text-white/45"
-                }`}
-                title="Shuffle"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.656 48.656 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3M4.5 12a48.563 48.563 0 00-.138 3.662 4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l-3 3m3-3l3-3" />
-                </svg>
-              </button>
-
-              <button
-                onClick={() => setPlayOnce(!playOnce)}
-                className={`p-2 rounded-full hover:bg-white/5 transition-all cursor-pointer ${
-                  playOnce ? "text-amber-400" : "text-white/45"
-                }`}
-                title="Play Once"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  {playOnce ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662M5.25 5.25h13.5M5.25 18.75h13.5" />
-                  )}
-                </svg>
-              </button>
-            </div>
-
-            {/* Center controls: Prev, Play/Pause, Next */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handlePrev}
-                className="p-2 text-white/70 hover:text-white active:scale-90 transition-transform cursor-pointer"
-                title="Previous"
-              >
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
-                </svg>
-              </button>
-
-              <button
-                onClick={togglePlay}
-                className="w-12 h-12 bg-white hover:bg-amber-50 text-black rounded-full flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-all"
-                title={isPlaying ? "Pause" : "Play"}
-              >
-                {isPlaying ? (
-                  <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-black translate-x-[1.5px]" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
-                )}
-              </button>
-
-              <button
-                onClick={handleNext}
-                className="p-2 text-white/70 hover:text-white active:scale-90 transition-transform cursor-pointer"
-                title="Next"
-              >
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M16 18h2V6h-2zM6 18l8.5-6L6 6z"/>
-                </svg>
-              </button>
-            </div>
-
-            {/* Right side spacer to balance the layout */}
-            <div className="w-24 hidden sm:block" />
-          </div>
-        </div>
-      </div>
-
-      {/* Playlist Modal */}
-      {isPlaylistOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-          <div className="w-full max-w-lg rounded-[28px] border border-white/10 bg-[#16110e]/95 p-6 shadow-2xl flex flex-col max-h-[80vh] text-left">
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-white/5">
-              <div>
-                <h2 className="text-lg font-bold text-white font-serif">ಕನ್ನಡ ಕಸ್ತೂರಿ ಪ್ಲೇಲಿಸ್ಟ್</h2>
-                <p className="text-xs text-white/50">{tracks.length} Curated Retro Tracks</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setIsPlaylistOpen(false)}
-                  className="p-2 text-white/50 hover:text-white rounded-full bg-white/5 border border-white/10 cursor-pointer"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+            <div className="flex items-center justify-between px-2 pt-1 pb-3">
+              <h2 className="text-white/90 text-sm sm:text-[15px] font-normal tracking-wide">
+                All songs
+              </h2>
+              <button
+                onClick={() => setIsPlaylistOpen(false)}
+                className="text-white/50 hover:text-white transition-colors p-1 -mr-1 cursor-pointer rounded-full hover:bg-white/10"
+                title="Close"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto py-4 space-y-2 pr-1 scrollbar-thin">
-              {tracks.map((trackItem, index) => {
+            <div className="flex-1 overflow-y-auto space-y-0.5 pr-1.5 scrollbar-thin">
+              {playlist.map((trackItem, index) => {
                 const isActive = index === currentTrackIndex;
                 return (
                   <div
@@ -616,65 +396,167 @@ export const Player: React.FC = () => {
                     onClick={() => {
                       setCurrentTrackIndex(index);
                       setIsPlaying(true);
-                      setIsPlaylistOpen(false);
                     }}
-                    className={`flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all ${
+                    className={`flex items-center gap-3.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
                       isActive
-                        ? "bg-amber-950/20 border border-amber-500/40"
-                        : "bg-white/5 border border-transparent hover:bg-white/10"
+                        ? "bg-white/15 text-white shadow-sm"
+                        : "text-white/80 hover:bg-white/[0.06] hover:text-white"
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {/* Left: YouTube Video Thumbnail loaded directly from YT CDN */}
-                      <div className="w-20 aspect-video rounded-lg bg-black border border-white/10 relative shrink-0 overflow-hidden">
-                        <img
-                          src={`https://img.youtube.com/vi/${trackItem.videoId}/mqdefault.jpg`}
-                          alt={trackItem.title}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                        {isActive && isPlaying && (
-                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                            <span className="text-amber-400 text-xs font-bold animate-pulse">▶</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className={`text-sm font-semibold truncate ${isActive ? "text-amber-300" : "text-white"}`}>
-                          {index + 1}. {trackItem.title}
-                        </p>
-                        <p className="text-xs text-white/50 truncate font-serif">
-                          {trackItem.artist} • {trackItem.film}
-                        </p>
-                      </div>
+                    {/* Track Number */}
+                    <span className={`w-5 text-center text-xs font-normal shrink-0 ${isActive ? "text-white font-medium" : "text-white/45"}`}>
+                      {index + 1}
+                    </span>
+
+                    {/* Track Title & Artist */}
+                    <div className="flex-1 min-w-0 pr-2">
+                      <h4 className={`text-[13px] sm:text-sm font-medium truncate leading-tight ${isActive ? "text-white font-semibold" : "text-white/90"}`}>
+                        {trackItem.title}
+                      </h4>
+                      <p className={`text-[11px] sm:text-xs truncate mt-0.5 font-normal ${isActive ? "text-white/75" : "text-white/50"}`}>
+                        {trackItem.artist}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0 ml-2">
-                      <span className="text-xs text-white/40 font-mono">{trackItem.year}</span>
-                      <a
-                        href={`https://youtu.be/${trackItem.videoId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-white/40 hover:text-white p-1"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                        </svg>
-                      </a>
-                    </div>
+
+                    {/* Duration */}
+                    <span className={`text-xs font-mono shrink-0 select-none ${isActive ? "text-white/85" : "text-white/45"}`}>
+                      {trackItem.duration || "4:00"}
+                    </span>
                   </div>
                 );
               })}
             </div>
+          </div>
+        )}
 
-            {/* Footer */}
-            <div className="pt-4 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
-              <span>YouTube Audio Integration • HD Sound</span>
-              <span className="text-amber-400 font-semibold">{tracks.length} Tracks</span>
+        {/* Floating Pill: Play a random memory */}
+        <button
+          onClick={playRandomMemory}
+          className="px-4.5 py-1.5 rounded-full bg-[#18181b]/85 hover:bg-[#27272a]/95 active:scale-95 border border-white/10 text-white/90 text-xs sm:text-[13px] font-medium shadow-xl backdrop-blur-md transition-all cursor-pointer flex items-center justify-center gap-1.5 hover:border-white/20"
+        >
+          <span>Play a random memory</span>
+        </button>
+
+        {/* Capsule Pill Bar */}
+        <div className="capsule-player rounded-full w-full p-2.5 sm:p-3 pl-2.5 sm:pl-3.5 pr-4 sm:pr-5 flex items-center gap-3 sm:gap-4 shadow-2xl relative overflow-hidden">
+          {/* 1. Left: Spinning Vinyl / CD Album Artwork */}
+          <div className="relative w-13 h-13 sm:w-16 sm:h-16 rounded-full shrink-0 overflow-hidden shadow-lg border border-white/20 select-none group">
+            <div
+              className={`w-full h-full rounded-full overflow-hidden transition-transform duration-700 ${
+                isPlaying ? "animate-spin-vinyl" : ""
+              }`}
+              style={{ animationDuration: "12s" }}
+            >
+              <img
+                src={`https://img.youtube.com/vi/${activeTrack.videoId}/hqdefault.jpg`}
+                alt={activeTrack.title}
+                className="w-full h-full object-cover scale-125"
+                loading="lazy"
+              />
+              {/* Vinyl concentric groove texture effect */}
+              <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,transparent_25%,rgba(0,0,0,0.2)_35%,transparent_45%,rgba(255,255,255,0.08)_55%,transparent_65%,rgba(0,0,0,0.3)_80%)] pointer-events-none" />
+            </div>
+
+            {/* Center Spindle Hole */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-[#141416] border border-neutral-600 shadow-inner z-10 pointer-events-none" />
+          </div>
+
+          {/* 2. Middle: Track Info & Seekbar & Time */}
+          <div className="flex-1 min-w-0 flex flex-col justify-center py-0.5">
+            <div className="min-w-0">
+              <h3 className="text-xs sm:text-sm md:text-[15px] font-semibold text-white truncate leading-tight tracking-wide">
+                {activeTrack.title}
+              </h3>
+              <p className="text-[11px] sm:text-xs text-white/70 truncate mt-0.5 font-normal">
+                {activeTrack.artist}
+              </p>
+            </div>
+
+            {/* Seekbar */}
+            <div className="w-full mt-1.5">
+              <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
+
+              {/* Time display */}
+              <div className="text-[10px] sm:text-[11px] font-mono text-white/55 tracking-wider -mt-0.5 select-none">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </div>
             </div>
           </div>
+
+          {/* 3. Right: Control Buttons */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Volume / Mute Button (hidden on small mobile, visible on desktop) */}
+            <button
+              onClick={toggleMute}
+              className="hidden sm:flex p-1.5 sm:p-2 text-white/75 hover:text-white transition-colors cursor-pointer rounded-full hover:bg-white/5 active:scale-95"
+              title={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? (
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27l4.73 4.73H4v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                </svg>
+              )}
+            </button>
+
+            {/* Prev Track Button */}
+            <button
+              onClick={handlePrev}
+              className="p-1.5 sm:p-2 text-white/80 hover:text-white active:scale-90 transition-transform cursor-pointer"
+              title="Previous"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+              </svg>
+            </button>
+
+            {/* Big Play / Pause Circle */}
+            <button
+              onClick={togglePlay}
+              className="w-9 h-9 sm:w-11 sm:h-11 bg-white hover:bg-neutral-100 text-black rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0"
+              title={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? (
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-black translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              )}
+            </button>
+
+            {/* Next Track Button */}
+            <button
+              onClick={handleNext}
+              className="p-1.5 sm:p-2 text-white/80 hover:text-white active:scale-90 transition-transform cursor-pointer"
+              title="Next"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M16 18h2V6h-2zM6 18l8.5-6L6 6z"/>
+              </svg>
+            </button>
+
+            {/* Playlist / Queue Button */}
+            <button
+              data-playlist-toggle="true"
+              onClick={() => setIsPlaylistOpen(!isPlaylistOpen)}
+              className={`p-1.5 sm:p-2 rounded-full transition-colors cursor-pointer active:scale-95 ${
+                isPlaylistOpen ? "text-white bg-white/20" : "text-white/75 hover:text-white hover:bg-white/5"
+              }`}
+              title="Playlist"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+              </svg>
+            </button>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Hidden YouTube Player Target for Audio Playback */}
       <div className="fixed bottom-0 right-0 w-1 h-1 opacity-0 pointer-events-none overflow-hidden">
