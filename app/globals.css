@@ -20,12 +20,12 @@ body {
 
 /* Background Scene configuration */
 .hero-bg {
-  background-image: url('/bg/scene-wide.png');
+  background-image: url('/bg/Portrait-mobile.png');
 }
 
 @media (orientation: portrait) {
   .hero-bg {
-    background-image: url('/bg/scene-tall.png');
+    background-image: url('/bg/Portrait-mobile.png');
   }
 }
 
@@ -36,6 +36,19 @@ body {
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.capsule-player {
+  background: linear-gradient(
+    90deg,
+    rgba(26, 27, 30, 0.88) 0%,
+    rgba(38, 26, 25, 0.88) 35%,
+    rgba(125, 42, 30, 0.92) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 /* Clock colon blink */
@@ -63,12 +76,33 @@ body {
   animation: spin 8s linear infinite;
 }
 
-/* Interactive elements */
-.slider-rail {
-  background: rgba(255, 255, 255, 0.15);
+/* Custom subtle scrollbar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
 }
 
-.slider-track {
-  background: var(--color-accent);
-  box-shadow: 0 0 8px var(--color-accent);
+.playlist-glass-card {
+  background: linear-gradient(
+    180deg,
+    rgba(38, 30, 28, 0.93) 0%,
+    rgba(24, 18, 17, 0.96) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  box-shadow: 0 24px 60px -8px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }

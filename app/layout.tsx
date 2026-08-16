@@ -11,6 +11,14 @@ const kannadaFont = Noto_Serif_Kannada({
 export const metadata: Metadata = {
   title: "Kannada Kasthuri | ಕನ್ನಡ ಕಸ್ತೂರಿ",
   description: "A nostalgic retro radio player for classic Kannada songs.",
+  icons: {
+    icon: [
+      { url: "/bg/icon.png" },
+      { url: "/bg/icon.png", type: "image/png" }
+    ],
+    shortcut: "/bg/icon.png",
+    apple: "/bg/icon.png",
+  },
 };
 
 export const viewport: Viewport = {
