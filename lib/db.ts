@@ -27,7 +27,7 @@ const DEFAULT_PLAYLISTS: PlaylistInfo[] = [
 ];
 
 // Helper to create Supabase Server/Admin client
-function getSupabase(): SupabaseClient | null {
+export function getSupabase(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||

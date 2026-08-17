@@ -11,6 +11,7 @@ export function AdminDashboard() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  const [supabaseConnected, setSupabaseConnected] = useState<boolean | null>(null);
 
   // Playlists & Selection
   const [playlists, setPlaylists] = useState<PlaylistInfo[]>([]);
@@ -219,6 +220,16 @@ export function AdminDashboard() {
     }
   };
 
+  const checkSupabaseConnection = async () => {
+    try {
+      const res = await fetch("/api/supabase-test");
+      const data = await res.json();
+      setSupabaseConnected(!!data.connected);
+    } catch {
+      setSupabaseConnected(false);
+    }
+  };
+
   const checkAuth = async () => {
     try {
       setAuthStatus("loading");
@@ -227,6 +238,7 @@ export function AdminDashboard() {
       if (data.authenticated) {
         setAuthStatus("authenticated");
         fetchPlaylists();
+        checkSupabaseConnection();
       } else {
         setAuthStatus("unauthenticated");
       }
@@ -271,6 +283,7 @@ export function AdminDashboard() {
       if (res.ok && data.success) {
         setAuthStatus("authenticated");
         fetchPlaylists();
+        checkSupabaseConnection();
       } else {
         setLoginError(data.error || "Invalid username or password");
       }
@@ -545,6 +558,11 @@ export function AdminDashboard() {
   // 2. Minimalist Dashboard
   return (
     <div className="min-h-screen bg-[#09090b] text-neutral-200 flex flex-col selection:bg-white selection:text-black">
+      {supabaseConnected === false && (
+        <div className="bg-red-500/10 border-b border-red-500/20 text-red-400 text-xs px-4 py-2.5 text-center font-medium flex items-center justify-center gap-2 select-none z-50">
+          <span>⚠️ Warning: Supabase database is not connected. All changes are being saved to temporary local JSON files and will be lost on page refresh or container restart. Please configure the Supabase environment variables on Vercel.</span>
+        </div>
+      )}
       {/* Toast Notification */}
       {notification && (
         <div
