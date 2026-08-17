@@ -1,22 +1,43 @@
 import { NextResponse } from "next/server";
+import { pingSession, getAccurateOnlineCount, removeSession } from "@/lib/online";
 
-// Simple in-memory tracker for active client timestamps
-const activeClients: Record<string, number> = {};
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  // Use a combination of IP / User-Agent or fallback as a client identifier
-  const ip = request.headers.get("x-forwarded-for") || "local-client";
-  activeClients[ip] = Date.now();
+  const { searchParams } = new URL(request.url);
+  const sessionId =
+    searchParams.get("sessionId") ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "client-default";
 
-  // Prune clients that haven't checked in for over 15 seconds
-  const now = Date.now();
-  Object.keys(activeClients).forEach((client) => {
-    if (now - activeClients[client] > 15000) {
-      delete activeClients[client];
+  const count = await pingSession(sessionId);
+
+  return NextResponse.json(
+    { online: count },
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      },
     }
-  });
+  );
+}
 
-  const onlineCount = Object.keys(activeClients).length;
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const sessionId = body?.sessionId;
+    if (sessionId) {
+      if (body.action === "leave") {
+        await removeSession(sessionId);
+        const count = await getAccurateOnlineCount();
+        return NextResponse.json({ online: count });
+      }
+      const count = await pingSession(sessionId);
+      return NextResponse.json({ online: count });
+    }
+  } catch {}
 
-  return NextResponse.json({ online: Math.max(1, onlineCount) });
+  const count = await getAccurateOnlineCount();
+  return NextResponse.json({ online: count });
 }
