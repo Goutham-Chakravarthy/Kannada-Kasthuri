@@ -133,26 +133,50 @@ const formatTime = (seconds: number) => {
 interface PlayerProps {
   initialTracks?: Track[];
   initialPlaylists?: PlaylistInfo[];
+  initialOnlineCount?: number;
 }
 
-export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists }) => {
+export const Player: React.FC<PlayerProps> = ({
+  initialTracks,
+  initialPlaylists,
+  initialOnlineCount = 1,
+}) => {
   const [allPlaylists, setAllPlaylists] = useState<PlaylistInfo[]>(() =>
-    initialPlaylists && initialPlaylists.length > 0 ? initialPlaylists : playlists
+    initialPlaylists && initialPlaylists.length > 0
+      ? initialPlaylists
+      : playlists.map((pl) => ({ ...pl, tracks: shuffleTrackList(pl.tracks) }))
   );
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>(() =>
     initialPlaylists && initialPlaylists.length > 0 ? initialPlaylists[0].id : "evergreen"
   );
   const activePlaylist = allPlaylists.find((p) => p.id === selectedPlaylistId) || allPlaylists[0] || playlists[0];
   const [playlist, setPlaylist] = useState<Track[]>(() =>
-    initialTracks && initialTracks.length > 0 ? initialTracks : activePlaylist.tracks
+    initialTracks && initialTracks.length > 0
+      ? initialTracks
+      : activePlaylist?.tracks && activePlaylist.tracks.length > 0
+      ? activePlaylist.tracks
+      : tracks
   );
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
-  const [onlineCount, setOnlineCount] = useState(86697);
+  const [onlineCount, setOnlineCount] = useState<number>(() => Math.max(1, initialOnlineCount || 1));
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
+
+  const handleSelectPlaylist = (targetPlaylist: PlaylistInfo) => {
+    if (targetPlaylist.id !== selectedPlaylistId) {
+      setSelectedPlaylistId(targetPlaylist.id);
+      const shuffledTracks = shuffleTrackList(targetPlaylist.tracks || []);
+      setPlaylist(shuffledTracks);
+      setAllPlaylists((prev) =>
+        prev.map((p) => (p.id === targetPlaylist.id ? { ...p, tracks: shuffledTracks } : p))
+      );
+      setCurrentTrackIndex(0);
+      setIsPlaying(true);
+    }
+  };
 
   // Sync playlists from backend periodically/on-mount
   useEffect(() => {
@@ -161,7 +185,21 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
         const res = await fetch("/api/playlists");
         const data = await res.json();
         if (data.playlists && Array.isArray(data.playlists) && data.playlists.length > 0) {
-          setAllPlaylists(data.playlists);
+          setAllPlaylists((prev) => {
+            return data.playlists.map((newPl: PlaylistInfo) => {
+              const existing = prev.find((p) => p.id === newPl.id);
+              // Preserve session's shuffled order if track count and tracks are unchanged
+              if (existing && existing.tracks.length === newPl.tracks.length) {
+                const newIds = new Set(newPl.tracks.map((t) => t.id));
+                const allMatch = existing.tracks.every((t) => newIds.has(t.id));
+                if (allMatch) {
+                  return { ...newPl, tracks: existing.tracks };
+                }
+              }
+              // If new playlist or track list changed in admin, shuffle the tracks
+              return { ...newPl, tracks: shuffleTrackList(newPl.tracks) };
+            });
+          });
         }
       } catch (e) {
         console.error("Failed to sync playlists", e);
@@ -207,23 +245,49 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
     playOnceRef.current = playOnce;
   }, [playOnce]);
 
-  // Fetch real online count
+  // Real-time active online user tracking
   useEffect(() => {
-    const fetchOnline = async () => {
+    let sessionId = "";
+    try {
+      sessionId = sessionStorage.getItem("kk_session_id") || "";
+      if (!sessionId) {
+        sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        sessionStorage.setItem("kk_session_id", sessionId);
+      }
+    } catch {
+      sessionId = `sess_${Date.now()}`;
+    }
+
+    const pingOnline = async () => {
       try {
-        const res = await fetch("/api/online");
+        const res = await fetch(`/api/online?sessionId=${encodeURIComponent(sessionId)}`);
         const data = await res.json();
         if (typeof data.online === "number") {
           setOnlineCount(data.online);
         }
       } catch (err) {
-        console.error("Failed to fetch online count", err);
+        console.warn("Failed to ping online presence", err);
       }
     };
 
-    fetchOnline();
-    const timer = setInterval(fetchOnline, 10000);
-    return () => clearInterval(timer);
+    pingOnline();
+    const timer = setInterval(pingOnline, 10000);
+
+    const handleUnload = () => {
+      if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+        const blob = new Blob([JSON.stringify({ sessionId, action: "leave" })], {
+          type: "application/json",
+        });
+        navigator.sendBeacon("/api/online", blob);
+      }
+    };
+
+    window.addEventListener("beforeunload", handleUnload);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("beforeunload", handleUnload);
+    };
   }, []);
 
   // Handle progress updates
@@ -369,6 +433,42 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
     }
   };
 
+  // Desktop keyboard shortcuts: Space (Play/Pause), ArrowRight (Next), ArrowLeft (Prev), M (Mute)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore shortcut if user is typing in an input field, textarea, or editable element
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.code === "Space" || e.key === " ") {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        handleNext();
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        handlePrev();
+      } else if (e.code === "KeyM" || e.key.toLowerCase() === "m") {
+        e.preventDefault();
+        toggleMute();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isPlaying, isMuted, playlist.length, activeTrack.videoId]);
+
   const playlistRef = useRef<HTMLDivElement | null>(null);
 
   // Click outside to close playlist popover
@@ -423,7 +523,7 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
         {isPlaylistOpen && (
           <div
             ref={playlistRef}
-            className="playlist-glass-card absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[calc(100%-1.5rem)] sm:w-full max-w-xl overflow-hidden rounded-3xl z-30 flex flex-col max-h-[50vh] sm:max-h-[58vh] text-left p-3.5 sm:p-5 animate-in fade-in zoom-in-95 duration-150"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[calc(100%-1.5rem)] sm:w-full max-w-xl overflow-hidden rounded-3xl border border-white/15 bg-black/50 backdrop-blur-xl z-30 flex flex-col max-h-[50vh] sm:max-h-[58vh] text-left p-3.5 sm:p-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
           >
             {/* Playlist Tabs Switcher */}
             <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-2xl border border-white/10 mb-3">
@@ -432,14 +532,7 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
                 return (
                   <button
                     key={pl.id}
-                    onClick={() => {
-                      if (pl.id !== selectedPlaylistId) {
-                        setSelectedPlaylistId(pl.id);
-                        setPlaylist(pl.tracks);
-                        setCurrentTrackIndex(0);
-                        setIsPlaying(true);
-                      }
-                    }}
+                    onClick={() => handleSelectPlaylist(pl)}
                     className={`flex-1 py-1.5 px-3 rounded-xl text-xs sm:text-[13px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       isSelected
                         ? "bg-white/20 text-white shadow-sm border border-white/15 font-semibold"
@@ -468,6 +561,9 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
                   onClick={() => {
                     const shuffled = shuffleTrackList(playlist);
                     setPlaylist(shuffled);
+                    setAllPlaylists((prev) =>
+                      prev.map((p) => (p.id === selectedPlaylistId ? { ...p, tracks: shuffled } : p))
+                    );
                     setCurrentTrackIndex(0);
                     setIsPlaying(true);
                   }}
@@ -542,18 +638,15 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
                 key={pl.id}
                 onClick={() => {
                   if (pl.id !== selectedPlaylistId) {
-                    setSelectedPlaylistId(pl.id);
-                    setPlaylist(pl.tracks);
-                    setCurrentTrackIndex(0);
-                    setIsPlaying(true);
+                    handleSelectPlaylist(pl);
                   } else {
                     setIsPlaylistOpen((prev) => !prev);
                   }
                 }}
-                className={`px-4.5 sm:px-5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all cursor-pointer shadow-xl backdrop-blur-md active:scale-95 border ${
+                className={`px-4.5 sm:px-5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all cursor-pointer shadow-xl backdrop-blur-xl active:scale-95 border ${
                   isSelected
-                    ? "bg-[#27272a]/95 text-white border-white/30 shadow-[0_4px_16px_rgba(0,0,0,0.5)] font-semibold scale-[1.02]"
-                    : "bg-[#18181b]/80 text-white/65 border-white/10 hover:text-white hover:bg-[#27272a]/80 hover:border-white/20"
+                    ? "bg-white/20 text-white border-white/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] font-semibold scale-[1.02]"
+                    : "bg-black/50 text-white/75 border-white/15 hover:text-white hover:bg-black/65 hover:border-white/25"
                 }`}
               >
                 {pl.name}
@@ -609,19 +702,19 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
           </div>
 
           {/* 3. Right: Control Buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 shrink-0">
             {/* Volume / Mute Button (hidden on small mobile, visible on desktop) */}
             <button
               onClick={toggleMute}
-              className="hidden sm:flex p-1.5 sm:p-2 text-white/75 hover:text-white transition-colors cursor-pointer rounded-full hover:bg-white/5 active:scale-95"
-              title={isMuted ? "Unmute" : "Mute"}
+              className="hidden sm:flex p-2 text-white/75 hover:text-white transition-colors cursor-pointer rounded-full hover:bg-white/5 active:scale-95"
+              title={isMuted ? "Unmute (M)" : "Mute (M)"}
             >
               {isMuted ? (
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27l4.73 4.73H4v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
                 </svg>
               ) : (
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
                 </svg>
               )}
@@ -630,10 +723,10 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
             {/* Prev Track Button */}
             <button
               onClick={handlePrev}
-              className="p-1.5 sm:p-2 text-white/80 hover:text-white active:scale-90 transition-transform cursor-pointer"
-              title="Previous"
+              className="p-2 sm:p-2 text-white/80 hover:text-white active:scale-90 transition-transform cursor-pointer"
+              title="Previous (Left Arrow)"
             >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
               </svg>
             </button>
@@ -641,15 +734,15 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
             {/* Big Play / Pause Circle */}
             <button
               onClick={togglePlay}
-              className="w-9 h-9 sm:w-11 sm:h-11 bg-white hover:bg-neutral-100 text-black rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0"
-              title={isPlaying ? "Pause" : "Play"}
+              className="w-11 h-11 sm:w-12 sm:h-12 bg-white hover:bg-neutral-100 text-black rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0"
+              title={isPlaying ? "Pause (Space)" : "Play (Space)"}
             >
               {isPlaying ? (
-                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-black" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
                 </svg>
               ) : (
-                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-black translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-black translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z"/>
                 </svg>
               )}
@@ -658,10 +751,10 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
             {/* Next Track Button */}
             <button
               onClick={handleNext}
-              className="p-1.5 sm:p-2 text-white/80 hover:text-white active:scale-90 transition-transform cursor-pointer"
-              title="Next"
+              className="p-2 sm:p-2 text-white/80 hover:text-white active:scale-90 transition-transform cursor-pointer"
+              title="Next (Right Arrow)"
             >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M16 18h2V6h-2zM6 18l8.5-6L6 6z"/>
               </svg>
             </button>
@@ -670,12 +763,12 @@ export const Player: React.FC<PlayerProps> = ({ initialTracks, initialPlaylists 
             <button
               data-playlist-toggle="true"
               onClick={() => setIsPlaylistOpen(!isPlaylistOpen)}
-              className={`p-1.5 sm:p-2 rounded-full transition-colors cursor-pointer active:scale-95 ${
+              className={`p-2 sm:p-2 rounded-full transition-colors cursor-pointer active:scale-95 ${
                 isPlaylistOpen ? "text-white bg-white/20" : "text-white/75 hover:text-white hover:bg-white/5"
               }`}
               title="Playlist"
             >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
               </svg>
             </button>

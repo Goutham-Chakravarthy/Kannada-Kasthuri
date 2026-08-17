@@ -177,70 +177,76 @@ export const BackgroundVideo: React.FC<BackgroundVideoProps> = ({
       className={`fixed inset-0 -z-20 w-full h-full overflow-hidden bg-[#0a090b] ${className}`}
       aria-hidden="true"
     >
-      {/* 1. Portrait Background (Shown on mobile portrait resolutions) */}
-      <div className="portrait:block landscape:hidden absolute inset-0 w-full h-full">
-        {isPortraitVideo ? (
-          <video
-            ref={portraitVideoRef}
-            src={currentPortraitSrc}
-            playsInline
-            autoPlay
-            loop
-            muted
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-700 ease-in-out"
-          />
-        ) : (
-          <div
-            className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat transition-all duration-700 ease-in-out scale-100"
-            style={{ backgroundImage: `url(${currentPortraitSrc})` }}
-          />
-        )}
-      </div>
-
-      {/* 2. Landscape Background (Shown on desktop/landscape resolutions) */}
-      <div className="portrait:hidden landscape:block absolute inset-0 w-full h-full">
-        {isLandscapeVideo ? (
-          <>
-            {/* Video Layer A */}
+      {/* Smooth Entrance Flow Container */}
+      <div className="absolute inset-0 w-full h-full animate-bg-flow-down">
+        {/* 1. Portrait Background (Shown on mobile portrait resolutions) */}
+        <div className="portrait:block landscape:hidden absolute inset-0 w-full h-full">
+          {isPortraitVideo ? (
             <video
-              ref={videoRefA}
-              src={currentLandscapeSrc}
+              ref={portraitVideoRef}
+              src={currentPortraitSrc}
               playsInline
               autoPlay
+              loop
               muted
-              preload="auto"
-              onTimeUpdate={() => handleTimeUpdate("A")}
-              onEnded={() => handleEnded("A")}
-              className="absolute inset-0 w-full h-full object-fill pointer-events-none transition-opacity duration-1000 ease-in-out will-change-[opacity]"
-              style={{
-                opacity: activeLayer === "A" ? 1 : 0,
-                zIndex: activeLayer === "A" ? 2 : 1,
-              }}
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-700 ease-in-out"
             />
+          ) : (
+            <div
+              className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat transition-all duration-700 ease-in-out scale-100"
+              style={{ backgroundImage: `url(${currentPortraitSrc})` }}
+            />
+          )}
+        </div>
 
-            {/* Video Layer B */}
-            <video
-              ref={videoRefB}
-              src={currentLandscapeSrc}
-              playsInline
-              muted
-              preload="auto"
-              onTimeUpdate={() => handleTimeUpdate("B")}
-              onEnded={() => handleEnded("B")}
-              className="absolute inset-0 w-full h-full object-fill pointer-events-none transition-opacity duration-1000 ease-in-out will-change-[opacity]"
-              style={{
-                opacity: activeLayer === "B" ? 1 : 0,
-                zIndex: activeLayer === "B" ? 2 : 1,
-              }}
+        {/* 2. Landscape Background (Shown on desktop/landscape resolutions) */}
+        <div className="portrait:hidden landscape:block absolute inset-0 w-full h-full">
+          {isLandscapeVideo ? (
+            <>
+              {/* Video Layer A */}
+              <video
+                ref={videoRefA}
+                src={currentLandscapeSrc}
+                playsInline
+                autoPlay
+                muted
+                preload="auto"
+                onTimeUpdate={() => handleTimeUpdate("A")}
+                onEnded={() => handleEnded("A")}
+                className="absolute inset-0 w-full h-full object-fill pointer-events-none transition-opacity duration-1000 ease-in-out will-change-[opacity]"
+                style={{
+                  opacity: activeLayer === "A" ? 1 : 0,
+                  zIndex: activeLayer === "A" ? 2 : 1,
+                }}
+              />
+
+              {/* Video Layer B */}
+              <video
+                ref={videoRefB}
+                src={currentLandscapeSrc}
+                playsInline
+                muted
+                preload="auto"
+                onTimeUpdate={() => handleTimeUpdate("B")}
+                onEnded={() => handleEnded("B")}
+                className="absolute inset-0 w-full h-full object-fill pointer-events-none transition-opacity duration-1000 ease-in-out will-change-[opacity]"
+                style={{
+                  opacity: activeLayer === "B" ? 1 : 0,
+                  zIndex: activeLayer === "B" ? 2 : 1,
+                }}
+              />
+            </>
+          ) : (
+            <div
+              className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat transition-all duration-700 ease-in-out"
+              style={{ backgroundImage: `url(${currentLandscapeSrc})` }}
             />
-          </>
-        ) : (
-          <div
-            className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat transition-all duration-700 ease-in-out"
-            style={{ backgroundImage: `url(${currentLandscapeSrc})` }}
-          />
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Smooth Curtain Sweep Overlay (Sweeps from top to down on entry) */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0a090b] via-[#0a090b]/80 to-transparent pointer-events-none animate-curtain-flow" />
 
       {/* Subtle global dark overlay for high readability */}
       <div className="absolute inset-0 bg-black/35 pointer-events-none" />

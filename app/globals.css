@@ -96,13 +96,52 @@ body {
 }
 
 .playlist-glass-card {
-  background: linear-gradient(
-    180deg,
-    rgba(38, 30, 28, 0.93) 0%,
-    rgba(24, 18, 17, 0.96) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  box-shadow: 0 24px 60px -8px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 24px 60px -8px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
+
+/* Smooth Top-to-Bottom Background Flow Entry Animations */
+@keyframes bgFlowDown {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    transform: scale(1.03) translateY(-14px);
+  }
+  35% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes curtainFlowDown {
+  0% {
+    transform: translateY(0%);
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+.animate-bg-flow-down {
+  animation: bgFlowDown 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: clip-path, transform, opacity;
+}
+
+.animate-curtain-flow {
+  animation: curtainFlowDown 1.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
+
