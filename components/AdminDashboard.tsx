@@ -219,10 +219,6 @@ export function AdminDashboard() {
     }
   };
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
   const checkAuth = async () => {
     try {
       setAuthStatus("loading");
@@ -238,6 +234,10 @@ export function AdminDashboard() {
       setAuthStatus("unauthenticated");
     }
   };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
 
   const fetchPlaylists = async () => {
     try {

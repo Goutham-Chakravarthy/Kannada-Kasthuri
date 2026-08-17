@@ -66,10 +66,12 @@ export const BackgroundVideo: React.FC<BackgroundVideoProps> = ({
 
   // Update background sources when props change with smooth transition
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentLandscapeSrc(src || "/bg/bg-video.mp4");
   }, [src]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPortraitSrc(portraitImage || "/bg/Portrait-mobile.png");
   }, [portraitImage]);
 

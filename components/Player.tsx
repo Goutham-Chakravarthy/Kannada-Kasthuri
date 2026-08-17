@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { tracks, Track, playlists, PlaylistInfo, shuffleTrackList } from "@/app/tracks";
 import { BackgroundVideo } from "@/components/BackgroundVideo";
 import { track } from "@vercel/analytics";
+import { createClient } from "@/lib/supabase/client";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 // Declarations for YouTube iframe API
 declare global {
@@ -178,7 +180,7 @@ export const Player: React.FC<PlayerProps> = ({
     }
   };
 
-  // Sync playlists from backend periodically/on-mount
+  // Sync playlists from backend periodically/on-mount & subscribe to Supabase Realtime changes
   useEffect(() => {
     const syncPlaylists = async () => {
       try {
@@ -205,8 +207,71 @@ export const Player: React.FC<PlayerProps> = ({
         console.error("Failed to sync playlists", e);
       }
     };
+
     syncPlaylists();
+
+    // Setup Supabase Realtime subscription if credentials are present
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    let channel: RealtimeChannel | null = null;
+
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const supabase = createClient();
+        channel = supabase
+          .channel("realtime-playlists")
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "playlists",
+            },
+            () => {
+              syncPlaylists();
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.error("Failed to setup Supabase Realtime:", err);
+      }
+    }
+
+    return () => {
+      if (channel) {
+        try {
+          const supabase = createClient();
+          supabase.removeChannel(channel);
+        } catch (err) {
+          // ignore
+        }
+      }
+    };
   }, []);
+
+  // Sync the currently playing track list (playlist state) if the active playlist's tracks change in allPlaylists
+  useEffect(() => {
+    const active = allPlaylists.find((p) => p.id === selectedPlaylistId);
+    if (active && active.tracks) {
+      const currentTrackIds = playlist.map((t) => t.id).join(",");
+      const activeTrackIds = active.tracks.map((t) => t.id).join(",");
+      if (currentTrackIds !== activeTrackIds) {
+        const currentTrack = playlist[currentTrackIndex];
+        let newIndex = 0;
+        if (currentTrack) {
+          const idx = active.tracks.findIndex((t) => t.id === currentTrack.id);
+          if (idx !== -1) {
+            newIndex = idx;
+          }
+        }
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setPlaylist(active.tracks);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCurrentTrackIndex(newIndex);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allPlaylists, selectedPlaylistId]);
 
 
   // Playback options states
