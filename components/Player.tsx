@@ -599,8 +599,8 @@ export const Player: React.FC<PlayerProps> = ({
                     key={pl.id}
                     onClick={() => handleSelectPlaylist(pl)}
                     className={`flex-1 py-1.5 px-3 rounded-xl text-xs sm:text-[13px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 ${isSelected
-                        ? "bg-white/20 text-white shadow-sm border border-white/15 font-semibold"
-                        : "text-white/60 hover:text-white hover:bg-white/5"
+                      ? "bg-white/20 text-white shadow-sm border border-white/15 font-semibold"
+                      : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
                   >
                     <span>{pl.name}</span>
@@ -662,8 +662,8 @@ export const Player: React.FC<PlayerProps> = ({
                       setIsPlaying(true);
                     }}
                     className={`flex items-center gap-3.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${isActive
-                        ? "bg-white/15 text-white shadow-sm"
-                        : "text-white/80 hover:bg-white/[0.06] hover:text-white"
+                      ? "bg-white/15 text-white shadow-sm"
+                      : "text-white/80 hover:bg-white/[0.06] hover:text-white"
                       }`}
                   >
                     {/* Track Number */}
@@ -707,8 +707,8 @@ export const Player: React.FC<PlayerProps> = ({
                   }
                 }}
                 className={`px-4.5 sm:px-5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all cursor-pointer shadow-xl backdrop-blur-xl active:scale-95 border ${isSelected
-                    ? "bg-white/20 text-white border-white/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] font-semibold scale-[1.02]"
-                    : "bg-black/50 text-white/75 border-white/15 hover:text-white hover:bg-black/65 hover:border-white/25"
+                  ? "bg-white/20 text-white border-white/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] font-semibold scale-[1.02]"
+                  : "bg-black/50 text-white/75 border-white/15 hover:text-white hover:bg-black/65 hover:border-white/25"
                   }`}
               >
                 {pl.name}

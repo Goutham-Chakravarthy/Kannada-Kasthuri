@@ -5,15 +5,20 @@ import { verifyAdminRequest } from "@/lib/auth";
 import { getSupabase } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "bg", "uploads");
 
-// Allowed file extensions
+// Allowed video & image file extensions
 const ALLOWED_EXTENSIONS = new Set([
+  // Video formats
   "mp4",
   "webm",
   "ogg",
   "mov",
+  "m4v",
+  "mkv",
+  // Image formats
   "jpg",
   "jpeg",
   "png",
@@ -22,6 +27,28 @@ const ALLOWED_EXTENSIONS = new Set([
   "avif",
   "svg",
 ]);
+
+function getMimeType(ext: string, browserType?: string): string {
+  if (browserType && browserType !== "application/octet-stream" && browserType.length > 3) {
+    return browserType;
+  }
+  const mimeMap: Record<string, string> = {
+    mp4: "video/mp4",
+    webm: "video/webm",
+    ogg: "video/ogg",
+    mov: "video/quicktime",
+    m4v: "video/x-m4v",
+    mkv: "video/x-matroska",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+    avif: "image/avif",
+    svg: "image/svg+xml",
+  };
+  return mimeMap[ext] || "application/octet-stream";
+}
 
 export async function POST(request: Request) {
   try {
@@ -37,6 +64,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
+    // Check file size (limit: 50MB)
+    const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
+    if (file.size > MAX_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: "File size exceeds 50MB limit. Please compress the video or image before uploading." },
+        { status: 400 }
+      );
+    }
+
     // Extract extension
     const originalName = file.name || "background";
     const extMatch = originalName.match(/\.([a-zA-Z0-9]+)$/);
@@ -45,7 +81,7 @@ export async function POST(request: Request) {
     if (!ALLOWED_EXTENSIONS.has(ext)) {
       return NextResponse.json(
         {
-          error: `Unsupported file type .${ext}. Allowed formats: MP4, WebM, PNG, JPG, WebP, GIF.`,
+          error: `Unsupported file type .${ext}. Allowed formats: MP4, WebM, MOV, PNG, JPG, WebP, GIF, AVIF.`,
         },
         { status: 400 }
       );
@@ -54,13 +90,13 @@ export async function POST(request: Request) {
     // Generate clean filename
     const safeTarget = target.replace(/[^a-z0-9_-]/gi, "");
     const filename = `bg-${safeTarget}-${Date.now()}.${ext}`;
-    const filePath = path.join(UPLOAD_DIR, filename);
+    const isVideo = ["mp4", "webm", "ogg", "mov", "m4v", "mkv"].includes(ext);
+    const mimeType = getMimeType(ext, file.type);
 
-    const isVideo = ["mp4", "webm", "ogg", "mov"].includes(ext);
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Try uploading to Supabase Storage if configured
+    // 1. Try uploading to Supabase Storage if configured
     const supabase = getSupabase();
     if (supabase) {
       try {
@@ -70,21 +106,21 @@ export async function POST(request: Request) {
             public: true,
           });
         } catch {
-          // ignore
+          // ignore bucket already exists
         }
 
         const { data, error } = await supabase.storage
           .from("backgrounds")
           .upload(filename, buffer, {
-            contentType: file.type || (isVideo ? `video/${ext}` : `image/${ext}`),
-            cacheControl: "3600",
+            contentType: mimeType,
+            cacheControl: "31536000",
             upsert: true,
           });
 
         if (!error && data) {
-          const { data: { publicUrl } } = supabase.storage
-            .from("backgrounds")
-            .getPublicUrl(filename);
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("backgrounds").getPublicUrl(filename);
 
           return NextResponse.json({
             success: true,
@@ -92,17 +128,18 @@ export async function POST(request: Request) {
             filename,
             type: isVideo ? "video" : "image",
           });
-        } else {
-          console.warn("Supabase Storage upload failed, falling back to local:", error);
+        } else if (error) {
+          console.warn("Supabase Storage upload returned error, trying local fallback:", error);
         }
       } catch (err) {
-        console.warn("Supabase Storage upload exception, falling back to local:", err);
+        console.warn("Supabase Storage upload exception, trying local fallback:", err);
       }
     }
 
-    // Local Disk Fallback (will fail in serverless production like Vercel but works locally)
+    // 2. Local Disk Fallback (works in local development and persistent servers)
     try {
       await fs.mkdir(UPLOAD_DIR, { recursive: true });
+      const filePath = path.join(UPLOAD_DIR, filename);
       await fs.writeFile(filePath, buffer);
 
       const publicUrl = `/bg/uploads/${filename}`;
@@ -115,13 +152,17 @@ export async function POST(request: Request) {
       });
     } catch (localWriteError: any) {
       console.error("Local filesystem write failed:", localWriteError);
-      return NextResponse.json({
-        error: "Failed to upload background file. Supabase is not connected and local filesystem is read-only.",
-        details: localWriteError?.message
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          error:
+            "Failed to save uploaded file. Ensure Supabase Storage is configured or run the storage schema in Supabase SQL editor.",
+          details: localWriteError?.message,
+        },
+        { status: 500 }
+      );
     }
   } catch (error) {
     console.error("Background upload error:", error);
-    return NextResponse.json({ error: "Failed to upload background file" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to upload media file" }, { status: 500 });
   }
 }
