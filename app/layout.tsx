@@ -9,7 +9,7 @@ const kannadaFont = Noto_Serif_Kannada({
 });
 
 export const metadata: Metadata = {
-  title: "Kannada Kasthuri | ಕನ್ನಡ ಕಸ್ತೂರಿ",
+  title: "Kannada Kasturi | ಕನ್ನಡ ಕಸ್ತೂರಿ",
   description: "A nostalgic retro radio player for classic Kannada songs.",
   icons: {
     icon: [
