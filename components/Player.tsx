@@ -106,7 +106,7 @@ const SeekBar: React.FC<SeekProps> = ({ currentTime, duration, onSeek }) => {
     >
       {/* Invisible hit area */}
       <div className="absolute inset-0 h-full" />
-      
+
       {/* Visible rail (3px) */}
       <div className="w-full h-[3px] rounded-full bg-white/20 relative overflow-visible">
         {/* Track fill */}
@@ -156,8 +156,8 @@ export const Player: React.FC<PlayerProps> = ({
     initialTracks && initialTracks.length > 0
       ? initialTracks
       : activePlaylist?.tracks && activePlaylist.tracks.length > 0
-      ? activePlaylist.tracks
-      : tracks
+        ? activePlaylist.tracks
+        : tracks
   );
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -598,11 +598,10 @@ export const Player: React.FC<PlayerProps> = ({
                   <button
                     key={pl.id}
                     onClick={() => handleSelectPlaylist(pl)}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs sm:text-[13px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                      isSelected
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs sm:text-[13px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 ${isSelected
                         ? "bg-white/20 text-white shadow-sm border border-white/15 font-semibold"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <span>{pl.name}</span>
                     <span className="text-[10px] font-mono opacity-65">({pl.tracks.length})</span>
@@ -662,11 +661,10 @@ export const Player: React.FC<PlayerProps> = ({
                       setCurrentTrackIndex(index);
                       setIsPlaying(true);
                     }}
-                    className={`flex items-center gap-3.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
-                      isActive
+                    className={`flex items-center gap-3.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${isActive
                         ? "bg-white/15 text-white shadow-sm"
                         : "text-white/80 hover:bg-white/[0.06] hover:text-white"
-                    }`}
+                      }`}
                   >
                     {/* Track Number */}
                     <span className={`w-5 text-center text-xs font-normal shrink-0 ${isActive ? "text-white font-medium" : "text-white/45"}`}>
@@ -708,11 +706,10 @@ export const Player: React.FC<PlayerProps> = ({
                     setIsPlaylistOpen((prev) => !prev);
                   }
                 }}
-                className={`px-4.5 sm:px-5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all cursor-pointer shadow-xl backdrop-blur-xl active:scale-95 border ${
-                  isSelected
+                className={`px-4.5 sm:px-5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all cursor-pointer shadow-xl backdrop-blur-xl active:scale-95 border ${isSelected
                     ? "bg-white/20 text-white border-white/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] font-semibold scale-[1.02]"
                     : "bg-black/50 text-white/75 border-white/15 hover:text-white hover:bg-black/65 hover:border-white/25"
-                }`}
+                  }`}
               >
                 {pl.name}
               </button>
@@ -725,9 +722,8 @@ export const Player: React.FC<PlayerProps> = ({
           {/* 1. Left: Spinning Vinyl / CD Album Artwork */}
           <div className="relative w-13 h-13 sm:w-16 sm:h-16 rounded-full shrink-0 overflow-hidden shadow-lg border border-white/20 select-none group">
             <div
-              className={`w-full h-full rounded-full overflow-hidden transition-transform duration-700 ${
-                isPlaying ? "animate-spin-vinyl" : ""
-              }`}
+              className={`w-full h-full rounded-full overflow-hidden transition-transform duration-700 ${isPlaying ? "animate-spin-vinyl" : ""
+                }`}
               style={{ animationDuration: "12s" }}
             >
               <img
@@ -780,7 +776,7 @@ export const Player: React.FC<PlayerProps> = ({
                 </svg>
               ) : (
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
                 </svg>
               )}
             </button>
@@ -792,7 +788,7 @@ export const Player: React.FC<PlayerProps> = ({
               title="Previous (Left Arrow)"
             >
               <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+                <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
               </svg>
             </button>
 
@@ -804,11 +800,11 @@ export const Player: React.FC<PlayerProps> = ({
             >
               {isPlaying ? (
                 <svg className="w-5 h-5 sm:w-6 sm:h-6 text-black" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                 </svg>
               ) : (
                 <svg className="w-5 h-5 sm:w-6 sm:h-6 text-black translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z"/>
+                  <path d="M8 5v14l11-7z" />
                 </svg>
               )}
             </button>
@@ -820,7 +816,7 @@ export const Player: React.FC<PlayerProps> = ({
               title="Next (Right Arrow)"
             >
               <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M16 18h2V6h-2zM6 18l8.5-6L6 6z"/>
+                <path d="M16 18h2V6h-2zM6 18l8.5-6L6 6z" />
               </svg>
             </button>
 
@@ -828,13 +824,12 @@ export const Player: React.FC<PlayerProps> = ({
             <button
               data-playlist-toggle="true"
               onClick={() => setIsPlaylistOpen(!isPlaylistOpen)}
-              className={`p-2 sm:p-2 rounded-full transition-colors cursor-pointer active:scale-95 ${
-                isPlaylistOpen ? "text-white bg-white/20" : "text-white/75 hover:text-white hover:bg-white/5"
-              }`}
+              className={`p-2 sm:p-2 rounded-full transition-colors cursor-pointer active:scale-95 ${isPlaylistOpen ? "text-white bg-white/20" : "text-white/75 hover:text-white hover:bg-white/5"
+                }`}
               title="Playlist"
             >
               <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+                <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
               </svg>
             </button>
           </div>

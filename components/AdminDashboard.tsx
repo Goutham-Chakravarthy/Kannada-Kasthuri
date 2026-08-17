@@ -470,11 +470,11 @@ export function AdminDashboard() {
 
   const filteredTracks = activePlaylist
     ? activePlaylist.tracks.filter(
-        (t) =>
-          t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.film.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      (t) =>
+        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.film.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : [];
 
   // Loading Screen
@@ -566,11 +566,10 @@ export function AdminDashboard() {
       {/* Toast Notification */}
       {notification && (
         <div
-          className={`fixed top-4 right-4 z-50 px-4 py-2.5 rounded-xl border text-xs font-medium backdrop-blur-md shadow-xl animate-in fade-in duration-150 ${
-            notification.type === "success"
+          className={`fixed top-4 right-4 z-50 px-4 py-2.5 rounded-xl border text-xs font-medium backdrop-blur-md shadow-xl animate-in fade-in duration-150 ${notification.type === "success"
               ? "bg-[#18181b]/90 border-white/20 text-white"
               : "bg-red-950/90 border-red-500/30 text-red-200"
-          }`}
+            }`}
         >
           {notification.message}
         </div>
@@ -745,11 +744,10 @@ export function AdminDashboard() {
                   <button
                     key={pl.id}
                     onClick={() => setSelectedPlaylistId(pl.id)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 border ${
-                      isSelected
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 border ${isSelected
                         ? "bg-white text-black border-white font-semibold shadow-sm"
                         : "bg-[#121215] text-white/60 border-white/10 hover:text-white hover:bg-[#18181b]"
-                    }`}
+                      }`}
                   >
                     <span>{pl.name}</span>
                     <span className={`text-[10px] font-mono ${isSelected ? "text-black/60" : "text-white/40"}`}>
@@ -1307,9 +1305,8 @@ export function AdminDashboard() {
                     {parsedSongs.map((song, i) => (
                       <div
                         key={i}
-                        className={`p-2.5 flex items-center gap-2.5 text-xs transition-colors ${
-                          song.selected ? "bg-white/[0.03]" : "opacity-45 bg-black/40"
-                        }`}
+                        className={`p-2.5 flex items-center gap-2.5 text-xs transition-colors ${song.selected ? "bg-white/[0.03]" : "opacity-45 bg-black/40"
+                          }`}
                       >
                         <input
                           type="checkbox"
