@@ -129,10 +129,21 @@ export async function POST(request: Request) {
             type: isVideo ? "video" : "image",
           });
         } else if (error) {
-          console.warn("Supabase Storage upload returned error, trying local fallback:", error);
+          console.error("Supabase Storage upload returned error:", error);
+          if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+            return NextResponse.json({
+              error: `Supabase Storage upload failed: ${error.message}. Make sure section 3 of 'supabase/schema.sql' has been executed in the Supabase SQL Editor.`,
+              details: error,
+            }, { status: 500 });
+          }
         }
-      } catch (err) {
-        console.warn("Supabase Storage upload exception, trying local fallback:", err);
+      } catch (err: any) {
+        console.error("Supabase Storage upload exception:", err);
+        if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+          return NextResponse.json({
+            error: `Supabase Storage error: ${err?.message || String(err)}`,
+          }, { status: 500 });
+        }
       }
     }
 
