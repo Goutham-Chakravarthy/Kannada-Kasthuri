@@ -190,6 +190,14 @@ export function AdminDashboard() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Check size limit: 50MB
+    const MAX_SIZE = 50 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      notify("error", "File is too large. Max allowed size is 50MB.");
+      e.target.value = "";
+      return;
+    }
+
     setIsUploadingBg(target);
     try {
       const formData = new FormData();
@@ -208,12 +216,12 @@ export function AdminDashboard() {
         } else {
           setPlaylistForm((prev) => ({ ...prev, bgPortrait: data.url }));
         }
-        notify("success", `Uploaded ${target} background!`);
+        notify("success", `Uploaded ${target} ${data.type || "media"}!`);
       } else {
         notify("error", data.error || "Upload failed");
       }
     } catch {
-      notify("error", "Failed to upload file");
+      notify("error", "Failed to upload media file");
     } finally {
       setIsUploadingBg(null);
       e.target.value = "";
@@ -1038,19 +1046,19 @@ export function AdminDashboard() {
                 />
               </div>
 
-              {/* Hidden file inputs */}
+              {/* Hidden file inputs supporting all video and image formats */}
               <input
                 type="file"
                 ref={landscapeFileInputRef}
                 className="hidden"
-                accept="image/*,video/mp4,video/webm,video/ogg,video/quicktime"
+                accept="image/*,video/*,.mp4,.webm,.ogg,.mov,.m4v,.mkv,.png,.jpg,.jpeg,.webp,.gif,.avif,.svg"
                 onChange={(e) => handleFileUpload(e, "landscape")}
               />
               <input
                 type="file"
                 ref={portraitFileInputRef}
                 className="hidden"
-                accept="image/*,video/mp4,video/webm,video/ogg,video/quicktime"
+                accept="image/*,video/*,.mp4,.webm,.ogg,.mov,.m4v,.mkv,.png,.jpg,.jpeg,.webp,.gif,.avif,.svg"
                 onChange={(e) => handleFileUpload(e, "portrait")}
               />
 
@@ -1058,10 +1066,14 @@ export function AdminDashboard() {
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between">
                   <label className="block text-[10px] font-medium text-white/70">
-                    Landscape Background (Desktop)
+                    Landscape Background (Desktop 16:9 - Video / Image)
                   </label>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-white/60 font-mono">
-                    {isVideoUrl(playlistForm.bgLandscape) ? "Video" : "Image"}
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-medium ${
+                    isVideoUrl(playlistForm.bgLandscape)
+                      ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                      : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                  }`}>
+                    {isVideoUrl(playlistForm.bgLandscape) ? "🎥 Video" : "🖼️ Image"}
                   </span>
                 </div>
 
@@ -1078,11 +1090,12 @@ export function AdminDashboard() {
                     disabled={isUploadingBg === "landscape"}
                     onClick={() => landscapeFileInputRef.current?.click()}
                     className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 disabled:opacity-50"
+                    title="Upload video (MP4, WebM, MOV) or image (PNG, JPG, WebP)"
                   >
                     {isUploadingBg === "landscape" ? (
                       <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                     ) : (
-                      <span>📁 Upload</span>
+                      <span>📁 Upload Media</span>
                     )}
                   </button>
                   <button
@@ -1115,7 +1128,7 @@ export function AdminDashboard() {
                       />
                     )}
                     <div className="absolute bottom-1 right-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white/70 font-mono">
-                      16:9 Preview
+                      {isVideoUrl(playlistForm.bgLandscape) ? "16:9 Video" : "16:9 Image"}
                     </div>
                   </div>
                 )}
@@ -1125,10 +1138,14 @@ export function AdminDashboard() {
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between">
                   <label className="block text-[10px] font-medium text-white/70">
-                    Portrait Background (Mobile)
+                    Portrait Background (Mobile 9:16 - Video / Image)
                   </label>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-white/60 font-mono">
-                    {isVideoUrl(playlistForm.bgPortrait) ? "Video" : "Image"}
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-medium ${
+                    isVideoUrl(playlistForm.bgPortrait)
+                      ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                      : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                  }`}>
+                    {isVideoUrl(playlistForm.bgPortrait) ? "🎥 Video" : "🖼️ Image"}
                   </span>
                 </div>
 
@@ -1145,11 +1162,12 @@ export function AdminDashboard() {
                     disabled={isUploadingBg === "portrait"}
                     onClick={() => portraitFileInputRef.current?.click()}
                     className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 disabled:opacity-50"
+                    title="Upload video (MP4, WebM, MOV) or image (PNG, JPG, WebP)"
                   >
                     {isUploadingBg === "portrait" ? (
                       <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                     ) : (
-                      <span>📁 Upload</span>
+                      <span>📁 Upload Media</span>
                     )}
                   </button>
                   <button
@@ -1182,7 +1200,7 @@ export function AdminDashboard() {
                       />
                     )}
                     <div className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/70 text-[8px] text-white/70 font-mono">
-                      9:16
+                      {isVideoUrl(playlistForm.bgPortrait) ? "9:16 Video" : "9:16 Image"}
                     </div>
                   </div>
                 )}

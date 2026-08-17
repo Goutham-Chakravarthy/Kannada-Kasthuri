@@ -12,8 +12,13 @@ export function isVideoUrl(url?: string): boolean {
     clean.endsWith(".webm") ||
     clean.endsWith(".ogg") ||
     clean.endsWith(".mov") ||
+    clean.endsWith(".m4v") ||
+    clean.endsWith(".mkv") ||
     clean.includes("/video") ||
-    clean.includes(".mp4?")
+    clean.includes(".mp4?") ||
+    clean.includes(".webm?") ||
+    clean.includes(".mov?") ||
+    clean.includes("video%2F")
   );
 }
 

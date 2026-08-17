@@ -50,3 +50,21 @@ CREATE POLICY "Allow public update active_sessions" ON public.active_sessions
 
 CREATE POLICY "Allow public delete active_sessions" ON public.active_sessions
     FOR DELETE USING (true);
+
+
+-- 3. Backgrounds Storage Bucket Setup (for video and image uploads)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('backgrounds', 'backgrounds', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Allow public read backgrounds" ON storage.objects
+    FOR SELECT USING (bucket_id = 'backgrounds');
+
+CREATE POLICY "Allow authenticated/anon upload backgrounds" ON storage.objects
+    FOR INSERT WITH CHECK (bucket_id = 'backgrounds');
+
+CREATE POLICY "Allow authenticated/anon update backgrounds" ON storage.objects
+    FOR UPDATE USING (bucket_id = 'backgrounds');
+
+CREATE POLICY "Allow authenticated/anon delete backgrounds" ON storage.objects
+    FOR DELETE USING (bucket_id = 'backgrounds');
