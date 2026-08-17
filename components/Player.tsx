@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { tracks, Track, playlists, PlaylistInfo, shuffleTrackList } from "@/app/tracks";
 import { BackgroundVideo } from "@/components/BackgroundVideo";
 import { track } from "@vercel/analytics";
@@ -280,6 +280,9 @@ export const Player: React.FC<PlayerProps> = ({
 
   const playerRef = useRef<any>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastResumeAttemptRef = useRef<number>(0);
+  const hasInteractedRef = useRef<boolean>(false);
   const containerId = "youtube-player-element";
   const activeTrack = playlist[currentTrackIndex] || playlist[0] || tracks[0];
 
@@ -374,13 +377,13 @@ export const Player: React.FC<PlayerProps> = ({
   };
 
   // Next and Prev track logic
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     setCurrentTrackIndex(prev => (prev + 1) % playlist.length);
-  };
+  }, [playlist.length]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     setCurrentTrackIndex(prev => (prev - 1 + playlist.length) % playlist.length);
-  };
+  }, [playlist.length]);
 
   // Load YouTube Player API
   useEffect(() => {
@@ -397,7 +400,7 @@ export const Player: React.FC<PlayerProps> = ({
         width: "100%",
         videoId: activeTrack.videoId,
         playerVars: {
-          autoplay: 0,
+          autoplay: 1,
           controls: 0,
           disablekb: 1,
           fs: 0,
@@ -412,7 +415,7 @@ export const Player: React.FC<PlayerProps> = ({
           onReady: (event: any) => {
             setIsPlayerReady(true);
             setDuration(event.target.getDuration() || 0);
-            if (isPlaying) {
+            if (isPlaying || hasInteractedRef.current) {
               event.target.playVideo();
             }
           },
@@ -423,8 +426,21 @@ export const Player: React.FC<PlayerProps> = ({
               setDuration(playerRef.current.getDuration() || 0);
               startTrackingProgress();
             } else if (event.data === 2) {
-              setIsPlaying(false);
-              stopTrackingProgress();
+              if (document.visibilityState === "hidden") {
+                // If paused due to backgrounding, attempt to auto-resume
+                const now = Date.now();
+                if (now - lastResumeAttemptRef.current > 2000) {
+                  lastResumeAttemptRef.current = now;
+                  try {
+                    playerRef.current.playVideo();
+                  } catch (e) {
+                    console.error("Auto-resume failed:", e);
+                  }
+                }
+              } else {
+                setIsPlaying(false);
+                stopTrackingProgress();
+              }
             } else if (event.data === 0) {
               if (playOnceRef.current) {
                 setIsPlaying(false);
@@ -435,7 +451,7 @@ export const Player: React.FC<PlayerProps> = ({
             }
           },
           onError: (event: any) => {
-            console.error("YouTube Player Error code:", event.data, "for videoId:", activeTrack.videoId);
+            console.warn("YouTube Player Error code:", event.data, "for videoId:", activeTrack.videoId);
             track("VideoPlayError", { videoId: activeTrack.videoId, errorCode: event.data });
             // Auto skip unplayable / embed-restricted videos
             setTimeout(() => {
@@ -533,6 +549,130 @@ export const Player: React.FC<PlayerProps> = ({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isPlaying, isMuted, playlist.length, activeTrack.videoId]);
+
+  // Background Audio & Media Session Setup
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA");
+      audio.loop = true;
+      silentAudioRef.current = audio;
+    }
+    return () => {
+      if (silentAudioRef.current) {
+        silentAudioRef.current.pause();
+      }
+    };
+  }, []);
+
+  // Unlock audio context and trigger playback on first user interaction
+  useEffect(() => {
+    const unlockAudio = (e: MouseEvent | TouchEvent) => {
+      hasInteractedRef.current = true;
+      if (silentAudioRef.current) {
+        silentAudioRef.current.play()
+          .then(() => {
+            silentAudioRef.current?.pause();
+          })
+          .catch((e) => console.log("Audio context unlock failed:", e));
+      }
+      
+      // Only auto-trigger playback if the user clicked on a non-interactive element
+      const target = e.target as HTMLElement;
+      const isControlClick = target.closest("button") || target.closest("a") || target.closest("[role='button']");
+      
+      if (!isControlClick) {
+        if (playerRef.current && typeof playerRef.current.playVideo === "function") {
+          try {
+            playerRef.current.playVideo();
+          } catch (err) {
+            console.warn("Failed to play on interaction unlock:", err);
+          }
+        }
+      }
+      
+      window.removeEventListener("click", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
+    };
+    window.addEventListener("click", unlockAudio);
+    window.addEventListener("touchstart", unlockAudio);
+    return () => {
+      window.removeEventListener("click", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
+    };
+  }, []);
+
+  // Sync silent audio state with isPlaying state
+  useEffect(() => {
+    if (!silentAudioRef.current) return;
+    if (isPlaying) {
+      silentAudioRef.current.play().catch((err) => {
+        console.warn("Silent audio playback failed:", err);
+      });
+    } else {
+      if (document.visibilityState !== "hidden") {
+        silentAudioRef.current.pause();
+      }
+    }
+  }, [isPlaying]);
+
+  // Update Media Session Metadata
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: activeTrack.title,
+      artist: activeTrack.artist,
+      album: "Kannada Kasthuri",
+      artwork: [
+        {
+          src: `https://img.youtube.com/vi/${activeTrack.videoId}/hqdefault.jpg`,
+          sizes: "480x360",
+          type: "image/jpeg",
+        },
+      ],
+    });
+  }, [activeTrack]);
+
+  // Update Media Session Playback State
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+  }, [isPlaying]);
+
+  // Update Media Session Action Handlers
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator)) return;
+
+    navigator.mediaSession.setActionHandler("play", () => {
+      if (playerRef.current && typeof playerRef.current.playVideo === "function") {
+        playerRef.current.playVideo();
+      }
+      setIsPlaying(true);
+    });
+
+    navigator.mediaSession.setActionHandler("pause", () => {
+      if (playerRef.current && typeof playerRef.current.pauseVideo === "function") {
+        playerRef.current.pauseVideo();
+      }
+      setIsPlaying(false);
+    });
+
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+      handlePrev();
+    });
+
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+      handleNext();
+    });
+
+    return () => {
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.setActionHandler("play", null);
+        navigator.mediaSession.setActionHandler("pause", null);
+        navigator.mediaSession.setActionHandler("previoustrack", null);
+        navigator.mediaSession.setActionHandler("nexttrack", null);
+      }
+    };
+  }, [handlePrev, handleNext]);
 
   const playlistRef = useRef<HTMLDivElement | null>(null);
 
