@@ -102,6 +102,50 @@ function parseSongDetails(rawTitle: string, authorName: string) {
   };
 }
 
+// Helper to scrape duration from YouTube page
+async function getYoutubeDuration(videoId: string): Promise<string> {
+  try {
+    const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+      }
+    });
+    if (!res.ok) return "4:00";
+    const html = await res.text();
+    
+    // Look for approxDurationMs
+    const match = html.match(/"approxDurationMs"\s*:\s*"(\d+)"/);
+    if (match && match[1]) {
+      const ms = parseInt(match[1], 10);
+      const totalSeconds = Math.round(ms / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    }
+    
+    // Fallback: look for meta tag duration
+    const metaMatch = html.match(/<meta itemprop="duration" content="PT(\d+M\d+S|\d+S|\d+M|\d+H\d+M\d+S)">/);
+    if (metaMatch && metaMatch[1]) {
+      const dur = metaMatch[1];
+      let minutes = 0;
+      let seconds = 0;
+      const mMatch = dur.match(/(\d+)M/);
+      const sMatch = dur.match(/(\d+)S/);
+      if (mMatch) minutes = parseInt(mMatch[1], 10);
+      if (sMatch) seconds = parseInt(sMatch[1], 10);
+      if (!mMatch && sMatch) {
+        const total = parseInt(sMatch[1], 10);
+        minutes = Math.floor(total / 60);
+        seconds = total % 60;
+      }
+      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    }
+  } catch (e) {
+    console.error(`Error fetching duration for ${videoId}:`, e);
+  }
+  return "4:00";
+}
+
 // POST /api/admin/fetch-youtube
 export async function POST(request: Request) {
   try {
@@ -121,6 +165,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid YouTube URL or Video ID" }, { status: 400 });
     }
 
+    // Scrape duration dynamically
+    const duration = await getYoutubeDuration(videoId);
+
     // Query YouTube oEmbed API
     const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
     const res = await fetch(oembedUrl, { next: { revalidate: 3600 } });
@@ -132,7 +179,7 @@ export async function POST(request: Request) {
         artist: "",
         film: "",
         year: new Date().getFullYear(),
-        duration: "4:00",
+        duration,
         thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
         rawTitle: "",
       });
@@ -149,7 +196,7 @@ export async function POST(request: Request) {
       artist: parsed.artist,
       film: parsed.film,
       year: parsed.year,
-      duration: "4:15",
+      duration,
       thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
       rawTitle,
       authorName,

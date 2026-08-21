@@ -730,26 +730,6 @@ export const Player: React.FC<PlayerProps> = ({
             ref={playlistRef}
             className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[calc(100%-1.5rem)] sm:w-full max-w-xl overflow-hidden rounded-3xl border border-white/15 bg-black/50 backdrop-blur-xl z-30 flex flex-col max-h-[50vh] sm:max-h-[58vh] text-left p-3.5 sm:p-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
           >
-            {/* Playlist Tabs Switcher */}
-            <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-2xl border border-white/10 mb-3">
-              {allPlaylists.map((pl) => {
-                const isSelected = pl.id === selectedPlaylistId;
-                return (
-                  <button
-                    key={pl.id}
-                    onClick={() => handleSelectPlaylist(pl)}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs sm:text-[13px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 ${isSelected
-                      ? "bg-white/20 text-white shadow-sm border border-white/15 font-semibold"
-                      : "text-white/60 hover:text-white hover:bg-white/5"
-                      }`}
-                  >
-                    <span>{pl.name}</span>
-                    <span className="text-[10px] font-mono opacity-65">({pl.tracks.length})</span>
-                  </button>
-                );
-              })}
-            </div>
-
             {/* Header */}
             <div className="flex items-center justify-between px-2 pt-0.5 pb-2.5">
               <div className="flex items-center gap-2 min-w-0">
